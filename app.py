@@ -11,13 +11,11 @@ if user_locale and "de" in user_locale:
     lang = "de"
     title = "📖 Saga – Sei Teil der Geschichte"
     input_label = "🌟 Wähle ein Thema für deine Geschichte:"
-    button_text = "Erstelle Geschichte"
     decision_prompt = "Was soll die Hauptfigur tun?"
 else:
     lang = "en"
     title = "📖 Saga – Be Part of the Story"
     input_label = "🌟 Choose a topic for your story:"
-    button_text = "Start Story"
     decision_prompt = "What should the main character do?"
 
 # 🏗 Session State für Story & Entscheidungsoptionen
@@ -40,11 +38,10 @@ if topic and not st.session_state.story:
             messages=[
                 {"role": "system", "content": f"Erzähle eine interaktive Kindergeschichte für 5-jährige Kinder "
                                               f"in {lang}. Jeder Abschnitt sollte etwa 300 Wörter lang sein "
-                                              f"und mit einem offenen Entscheidungspunkt enden. Nutze eine einfache, "
-                                              f"kindgerechte Sprache."},
+                                              f"und mit einem offenen Entscheidungspunkt enden. "
+                                              f"Schreibe die Optionen NICHT in den Text."},
                 {"role": "user", "content": f"Erstelle eine Kindergeschichte über {topic}. "
-                                            f"Die Geschichte sollte mit einem klaren Entscheidungspunkt enden, "
-                                            f"bei dem die Hauptfigur zwei Optionen hat."}
+                                            f"Die Geschichte sollte mit einem klaren Entscheidungspunkt enden."}
             ]
         )
 
@@ -57,8 +54,8 @@ if topic and not st.session_state.story:
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": f"Basierend auf der Geschichte, gib exakt zwei sinnvolle Entscheidungsoptionen "
-                                              f"für den Nutzer in {lang}. Diese Optionen sollten auf den Entscheidungspunkt "
-                                              f"der Geschichte folgen. Schreibe nur die beiden Optionen, nichts anderes."},
+                                              f"für den Nutzer in {lang}. Schreibe nur die zwei Optionen, "
+                                              f"NICHT die ganze Geschichte oder einen Einleitungstext."},
                 {"role": "user", "content": f"Die Geschichte endet an folgendem Entscheidungspunkt:\n\n{story_response}\n\n"
                                             f"Welche zwei sinnvollen Optionen hat die Hauptfigur jetzt?"}
             ]
@@ -69,7 +66,7 @@ if topic and not st.session_state.story:
     except Exception as e:
         st.error(f"❌ Fehler: {str(e)}")
 
-# 📖 Zeige die aktuelle Geschichte an
+# 📖 Zeige die aktuelle Geschichte an (ohne Entscheidungsoptionen)
 if st.session_state.story:
     st.write(st.session_state.story)
 
@@ -90,10 +87,11 @@ if st.session_state.story:
                 messages=[
                     {"role": "system", "content": f"Setze die Geschichte basierend auf der getroffenen Entscheidung fort "
                                                   f"in {lang}. Der nächste Abschnitt sollte wieder etwa 300 Wörter lang sein "
-                                                  f"und mit einem offenen Entscheidungspunkt enden."},
+                                                  f"und mit einem offenen Entscheidungspunkt enden. "
+                                                  f"Schreibe die Optionen NICHT in den Text."},
                     {"role": "user", "content": f"Die bisherige Geschichte:\n\n{'\n\n'.join(st.session_state.history)}\n\n"
                                                 f"Der Nutzer hat sich entschieden für: {selected_option}\n\n"
-                                                f"Setze die Geschichte fort und gib am Ende genau zwei neue Entscheidungsoptionen."}
+                                                f"Setze die Geschichte fort."}
                 ]
             )
 
@@ -106,7 +104,8 @@ if st.session_state.story:
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": f"Generiere exakt zwei neue Entscheidungsoptionen in {lang}, "
-                                                  f"die logisch aus der Geschichte folgen."},
+                                                  f"die logisch aus der Geschichte folgen. "
+                                                  f"Schreibe nur die zwei Optionen, NICHT die ganze Geschichte."},
                     {"role": "user", "content": f"Die Geschichte endet an folgendem Punkt:\n\n{new_story_part}\n\n"
                                                 f"Welche zwei sinnvollen Optionen gibt es jetzt für die Hauptfigur?"}
                 ]
