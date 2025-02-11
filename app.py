@@ -15,7 +15,7 @@ if topic:
     try:
         # GPT-4 Turbo API Anfrage mit neuer Syntax
         response = openai.chat.completions.create(
-            model="gpt-4-turbo-2024-02-06",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Erzähle eine interaktive Kindergeschichte"},
                 {"role": "user", "content": f"Erstelle eine Kindergeschichte über {topic}."}
