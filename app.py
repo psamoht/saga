@@ -4,41 +4,55 @@ import openai
 # OpenAI API-Schlüssel aus den Streamlit Secrets laden
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# Streamlit UI
-st.title("📖 AI Box - Interaktive Geschichten für Kinder")
-st.subheader("🌟 Gib ein Thema für deine Geschichte ein:")
+# App-Titel
+st.title("📖 Saga – Erlebe deine eigene interaktive Geschichte")
+st.subheader("🌟 Wähle ein Thema für deine Geschichte:")
 
-# Session State für Geschichte und Optionen
+# Session State für Story und Entscheidungsoptionen
 if "story" not in st.session_state:
     st.session_state.story = ""
 if "options" not in st.session_state:
     st.session_state.options = []
+if "history" not in st.session_state:
+    st.session_state.history = []  # Speichert die Geschichte für den Kontext
 
-# Eingabe durch den Nutzer
+# Nutzer gibt ein Thema für die Geschichte ein
 topic = st.text_input("Beispiel: Eine Geschichte über einen Bagger")
 
 if topic and not st.session_state.story:
     try:
-        # GPT-4o Mini generiert die erste Story mit zwei Optionen
+        # GPT-4o Mini generiert den ersten Abschnitt mit einer offenen Handlung
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Erzähle eine interaktive Kindergeschichte. "
-                                              "Beende die Geschichte nicht und erzeuge immer genau zwei Entscheidungsoptionen."},
+                {"role": "system", "content": 
+                    "Erzähle eine interaktive Kindergeschichte, die immer an einem logischen Entscheidungspunkt endet. "
+                    "Beschreibe eine Szene, entwickle die Handlung, aber lasse die Geschichte mit genau zwei möglichen "
+                    "Entscheidungen offen. Formuliere keine Lösung oder einen Abschluss."
+                },
                 {"role": "user", "content": f"Erstelle eine Kindergeschichte über {topic} "
-                                            "und gib mir am Ende genau zwei Entscheidungsoptionen."}
+                                            "und gib am Ende genau zwei Entscheidungsoptionen."}
             ]
         )
 
         story_response = response.choices[0].message.content
-        # Die Geschichte und die Entscheidungsoptionen aufteilen
-        story_parts = story_response.split("\n\n")
-        story_text = story_parts[0]  # Die Geschichte
-        options = story_parts[1:] if len(story_parts) > 1 else ["Weiter", "Etwas anderes tun"]
 
-        # Speichern der Werte
-        st.session_state.story = story_text
-        st.session_state.options = options
+        # Die Geschichte in den Session State übernehmen
+        st.session_state.history.append(story_response)
+        st.session_state.story = story_response
+
+        # Zwei Entscheidungsoptionen extrahieren
+        next_response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Basierend auf dieser Geschichte, generiere exakt zwei sinnvolle Entscheidungsoptionen "
+                                              "für den Nutzer. Gib nur die zwei Optionen aus, ohne zusätzliche Story."},
+                {"role": "user", "content": f"Die Geschichte endet an folgendem Entscheidungspunkt:\n\n{story_response}\n\n"
+                                            "Welche zwei Optionen hat die Hauptfigur jetzt?"}
+            ]
+        )
+
+        st.session_state.options = next_response.choices[0].message.content.split("\n")
 
     except Exception as e:
         st.error(f"❌ Fehler: {str(e)}")
@@ -47,36 +61,44 @@ if topic and not st.session_state.story:
 if st.session_state.story:
     st.write(st.session_state.story)
 
-    # Zeige die Entscheidungsoptionen als Buttons an
+    # Falls Entscheidungsoptionen vorhanden sind, zeige sie als Buttons
     selected_option = None
-    for option in st.session_state.options:
-        if st.button(option):
-            selected_option = option
+    if len(st.session_state.options) == 2:
+        if st.button(st.session_state.options[0]):
+            selected_option = st.session_state.options[0]
+        if st.button(st.session_state.options[1]):
+            selected_option = st.session_state.options[1]
 
-    # Falls eine Option gewählt wurde, geht die Geschichte weiter
+    # Falls der Nutzer eine Entscheidung getroffen hat, geht die Geschichte weiter
     if selected_option:
         try:
-            next_response = openai.chat.completions.create(
+            next_story_response = openai.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "Erzähle die Kindergeschichte weiter, basierend auf der folgenden Entscheidung. "
-                                                  "Erfinde keine neuen Optionen, sondern setze die Geschichte basierend auf der Wahl fort. "
-                                                  "Gib am Ende genau zwei neue Entscheidungsoptionen."},
-                    {"role": "user", "content": f"Die bisherige Geschichte: {st.session_state.story} "
-                                                f"Die getroffene Entscheidung: {selected_option} "
-                                                "Setze die Geschichte fort und gib am Ende zwei neue Optionen."}
+                    {"role": "system", "content": "Erzähle die Geschichte weiter, basierend auf der Entscheidung des Nutzers. "
+                                                  "Die Geschichte endet wieder an einem neuen logischen Entscheidungspunkt."},
+                    {"role": "user", "content": f"Die bisherige Geschichte:\n\n{'\n\n'.join(st.session_state.history)}\n\n"
+                                                f"Der Nutzer hat sich entschieden für: {selected_option}\n\n"
+                                                "Setze die Geschichte fort und gib am Ende genau zwei neue Entscheidungsoptionen."}
                 ]
             )
 
-            next_story_response = next_response.choices[0].message.content
-            story_parts = next_story_response.split("\n\n")
-            next_story_text = story_parts[0]
-            new_options = story_parts[1:] if len(story_parts) > 1 else ["Weiter", "Etwas anderes tun"]
+            new_story_part = next_story_response.choices[0].message.content
+            st.session_state.history.append(new_story_part)
+            st.session_state.story = new_story_part
 
-            # Speichere die Geschichte weiter
-            st.session_state.story += "\n\n" + next_story_text
-            st.session_state.options = new_options
-            st.experimental_rerun()  # Aktualisiere die UI mit der neuen Story
+            # Neue Entscheidungsoptionen abrufen
+            next_options_response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Generiere exakt zwei neue Entscheidungsoptionen, die logisch aus der Geschichte folgen."},
+                    {"role": "user", "content": f"Die Geschichte endet an folgendem Punkt:\n\n{new_story_part}\n\n"
+                                                "Welche zwei sinnvollen Optionen gibt es jetzt für die Hauptfigur?"}
+                ]
+            )
+
+            st.session_state.options = next_options_response.choices[0].message.content.split("\n")
+            st.experimental_rerun()
 
         except Exception as e:
             st.error(f"❌ Fehler: {str(e)}")
