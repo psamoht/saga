@@ -6,16 +6,14 @@ import re
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# 🌍 Detect system language
+# 🌍 Detect system language for default selection
 user_locale = locale.getdefaultlocale()[0]
-if user_locale and "de" in user_locale:
-    lang = "de"
-    title = "📖 Saga – Sei Teil der Geschichte"
-    input_label = "🌟 Wähle ein Thema für deine Geschichte:"
-else:
-    lang = "en"
-    title = "📖 Saga – Be Part of the Story"
-    input_label = "🌟 Choose a topic for your story:"
+default_lang = "de" if user_locale and "de" in user_locale else "en"
+
+# 🌐 Language Selection Dropdown
+lang_options = {"English": "en", "Deutsch": "de"}
+selected_lang = st.selectbox("🌍 Select Language / Sprache wählen:", list(lang_options.keys()), index=0 if default_lang == "en" else 1)
+lang = lang_options[selected_lang]
 
 # 🏗 Session State for story and choices
 if "story" not in st.session_state:
@@ -27,24 +25,23 @@ if "history" not in st.session_state:
 
 # 📝 Extract main character's name dynamically
 def extract_main_character(story_text):
-    match = re.search(r"\b([A-Z][a-z]+)\b", story_text)
+    match = re.search(r"\b([A-ZÄÖÜ][a-zäöü]+)\b", story_text)
     return match.group(1) if match else "the character"
 
 # 📜 Start of Streamlit UI
-st.title(title)
-topic = st.text_input(input_label)
+st.title("📖 Saga – Be Part of the Story" if lang == "en" else "📖 Saga – Sei Teil der Geschichte")
+topic = st.text_input("🌟 Choose a topic for your story:" if lang == "en" else "🌟 Wähle ein Thema für deine Geschichte:")
 
 if topic and not st.session_state.story:
     try:
-        # 🎭 Generate initial story with a natural decision transition
+        # 🎭 Generate initial story with ~200 words and a natural decision transition
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": f"Create a fun and engaging children's story for a 5-year-old in {lang}. "
-                                              f"Each section should be around 300 words long, "
-                                              f"with a smooth and natural transition to a decision point. "
+                                              f"Each section should be about 200 words long and end at a logical decision point. "
                                               f"Do NOT include decision options in the text. "
-                                              f"Use simple and playful language."},
+                                              f"Use simple, playful language for kids."},
                 {"role": "user", "content": f"Write a children's story about {topic}. "
                                             f"The story should end in a way that naturally leads to a choice the reader must make."}
             ]
@@ -63,10 +60,9 @@ if topic and not st.session_state.story:
             messages=[
                 {"role": "system", "content": f"Create a smooth, natural transition for a children's story in {lang}, "
                                               f"leading the reader to make a decision. "
-                                              f"Use a playful, easy-to-understand style suitable for a 5-year-old. "
-                                              f"Make it feel like a natural part of the story, not like a separate question."},
+                                              f"Use playful and easy-to-understand language suitable for a 5-year-old."},
                 {"role": "user", "content": f"The story ends here:\n\n{story_response}\n\n"
-                                            f"Write a natural story transition that leads to the reader choosing what {main_character} should do next."}
+                                            f"Write a natural transition leading to a choice for {main_character}."}
             ]
         )
 
@@ -76,9 +72,9 @@ if topic and not st.session_state.story:
         next_response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": f"Generate exactly two simple, natural choices for a 5-year-old "
-                                              f"in {lang}. The choices should sound playful and easy to understand. "
-                                              f"Use simple words and keep them short. Do NOT write a question, only the two choices."},
+                {"role": "system", "content": f"Generate exactly two simple, natural choices for a 5-year-old in {lang}. "
+                                              f"The choices should sound playful and easy to understand. "
+                                              f"Use short sentences. Do NOT write a question, only the two choices."},
                 {"role": "user", "content": f"The story ends here:\n\n{story_response}\n\n"
                                             f"What are two natural choices for {main_character}?"}
             ]
@@ -111,8 +107,8 @@ if st.session_state.story:
             next_story_response = openai.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": f"Continue the story in {lang}, keeping it fun and engaging for a 5-year-old. "
-                                                  f"Each section should be around 300 words long, "
+                    {"role": "system", "content": f"Continue the story based on the selected choice in {lang}. "
+                                                  f"Each section should be about 200 words long "
                                                   f"and end with a smooth transition to a new decision point. "
                                                   f"Do NOT include decision options in the text."},
                     {"role": "user", "content": f"The story so far:\n\n{'\n\n'.join(st.session_state.history)}\n\n"
