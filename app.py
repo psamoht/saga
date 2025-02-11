@@ -98,7 +98,7 @@ if st.session_state.story:
             )
 
             st.session_state.options = next_options_response.choices[0].message.content.split("\n")
-            st.experimental_rerun()
+            st.rerun()
 
         except Exception as e:
             st.error(f"❌ Fehler: {str(e)}")
