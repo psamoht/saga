@@ -34,16 +34,17 @@ topic = st.text_input("🌟 Choose a topic for your story:" if lang == "en" else
 
 if topic and not st.session_state.story:
     try:
-        # 🎭 Generate initial story with ~200 words and a natural decision transition
+        # 🎭 Generate an engaging 200-word story section with a natural decision point
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": f"Create a fun and engaging children's story for a 5-year-old in {lang}. "
-                                              f"Each section should be about 200 words long and end at a logical decision point. "
-                                              f"Do NOT include decision options in the text. "
-                                              f"Use simple, playful language for kids."},
+                {"role": "system", "content": f"Create a fun, engaging children's story for a 5-year-old in {lang}. "
+                                              f"Each section should be around 200 words long (not more). "
+                                              f"The story should flow naturally and end at a logical decision point. "
+                                              f"DO NOT include any choices in the text—only the story itself."},
                 {"role": "user", "content": f"Write a children's story about {topic}. "
-                                            f"The story should end in a way that naturally leads to a choice the reader must make."}
+                                            f"The story should be exciting, fun, and easy to understand. "
+                                            f"It should end naturally where a choice needs to be made."}
             ]
         )
 
@@ -58,29 +59,29 @@ if topic and not st.session_state.story:
         decision_prompt_response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": f"Create a smooth, natural transition for a children's story in {lang}, "
+                {"role": "system", "content": f"Write a smooth, playful transition for a children's story in {lang}, "
                                               f"leading the reader to make a decision. "
-                                              f"Use playful and easy-to-understand language suitable for a 5-year-old."},
+                                              f"Make it a natural part of the story."},
                 {"role": "user", "content": f"The story ends here:\n\n{story_response}\n\n"
-                                            f"Write a natural transition leading to a choice for {main_character}."}
+                                            f"Write a fun transition leading the reader to a choice for {main_character}."}
             ]
         )
 
         st.session_state.decision_prompt = decision_prompt_response.choices[0].message.content
 
-        # 🎭 Generate two natural decision options
+        # 🎭 Generate exactly two simple decision options (Fix for missing buttons)
         next_response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": f"Generate exactly two simple, natural choices for a 5-year-old in {lang}. "
-                                              f"The choices should sound playful and easy to understand. "
-                                              f"Use short sentences. Do NOT write a question, only the two choices."},
+                {"role": "system", "content": f"Generate exactly two simple, clear choices for a 5-year-old in {lang}. "
+                                              f"The choices must be SHORT, easy to understand, and logical. "
+                                              f"Only return the choices, nothing else."},
                 {"role": "user", "content": f"The story ends here:\n\n{story_response}\n\n"
-                                            f"What are two natural choices for {main_character}?"}
+                                            f"What are two natural choices for {main_character}? ONLY return the choices."}
             ]
         )
 
-        st.session_state.options = next_response.choices[0].message.content.split("\n")
+        st.session_state.options = [option.strip() for option in next_response.choices[0].message.content.split("\n") if option.strip()]
 
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
@@ -89,11 +90,11 @@ if topic and not st.session_state.story:
 if st.session_state.story:
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
-    # 🛤️ Show smooth transition to decision point (same size as story text)
+    # 🛤️ Show smooth transition to decision point
     if hasattr(st.session_state, "decision_prompt"):
         st.markdown(f"<p style='font-size:18px;'><b>{st.session_state.decision_prompt}</b></p>", unsafe_allow_html=True)
 
-    # 🎭 Show decision buttons
+    # 🎭 Show decision buttons (Fix for missing buttons)
     selected_option = None
     if len(st.session_state.options) == 2:
         if st.button(st.session_state.options[0]):
@@ -108,12 +109,12 @@ if st.session_state.story:
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": f"Continue the story based on the selected choice in {lang}. "
-                                                  f"Each section should be about 200 words long "
-                                                  f"and end with a smooth transition to a new decision point. "
-                                                  f"Do NOT include decision options in the text."},
+                                                  f"Each section should be around 200 words long. "
+                                                  f"Make the story flow naturally and end at a logical decision point. "
+                                                  f"DO NOT include decision options in the text."},
                     {"role": "user", "content": f"The story so far:\n\n{'\n\n'.join(st.session_state.history)}\n\n"
                                                 f"The reader chose: {selected_option}\n\n"
-                                                f"Continue the story naturally."}
+                                                f"Continue the story."}
                 ]
             )
 
@@ -145,7 +146,7 @@ if st.session_state.story:
                                                   f"that are simple and engaging for a 5-year-old. "
                                                   f"Use short and easy-to-understand words."},
                     {"role": "user", "content": f"The story ends here:\n\n{new_story_part}\n\n"
-                                                f"What are two fun and natural choices for {main_character}?"}
+                                                f"What are two fun and natural choices for {main_character}? ONLY return the choices."}
                 ]
             )
 
