@@ -38,23 +38,27 @@ if topic and not st.session_state.story:
                                               f"The story should flow naturally and end at a logical decision point, "
                                               f"where two possible story paths emerge. "
                                               f"The decisions should feel like a natural part of the story, without directly addressing the reader. "
-                                              f"Clearly separate the two options at the end."},
+                                              f"Clearly separate the two options at the end, with each option on a separate line."},
                 {"role": "user", "content": f"Write a children's story about {topic}. "
                                             f"Make sure that each story section is about 200 words long, "
-                                            f"ending with two choices for the next part of the story."}
+                                            f"ending with two choices for the next part of the story, each on a new line."}
             ]
         )
 
         full_story_response = response.choices[0].message.content
 
         # 🏷 Extract the main story and the two decision options
-        story_parts = full_story_response.split("\n\n")
-        story_text = "\n\n".join(story_parts[:-2])  # The actual story
-        options = story_parts[-2:]  # Last two lines contain the choices
+        story_lines = full_story_response.strip().split("\n")
+        
+        # Story content (everything except last two lines)
+        story_text = "\n\n".join(story_lines[:-2]).strip()
+        
+        # Last two lines are the decision options
+        options = [story_lines[-2].strip(), story_lines[-1].strip()]
 
         st.session_state.history.append(story_text)
         st.session_state.story = story_text
-        st.session_state.options = [opt.strip() for opt in options if opt.strip()]
+        st.session_state.options = options  # Ensure each button gets the correct text
 
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
@@ -63,13 +67,16 @@ if topic and not st.session_state.story:
 if st.session_state.story:
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
-    # 🎭 Show decision buttons
+    # 🎭 Show decision buttons (Fix for incorrect button text)
     selected_option = None
     if len(st.session_state.options) == 2:
-        if st.button(st.session_state.options[0]):
-            selected_option = st.session_state.options[0]
-        if st.button(st.session_state.options[1]):
-            selected_option = st.session_state.options[1]
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button(st.session_state.options[0]):
+                selected_option = st.session_state.options[0]
+        with col2:
+            if st.button(st.session_state.options[1]):
+                selected_option = st.session_state.options[1]
 
     # ⏭️ Continue the story after a decision
     if selected_option:
@@ -81,23 +88,23 @@ if st.session_state.story:
                                                   f"Each section should be around 200 words long and end with a logical decision point. "
                                                   f"The decisions should feel like a natural part of the story, "
                                                   f"without directly addressing the reader. "
-                                                  f"Clearly separate the two options at the end."},
+                                                  f"Clearly separate the two options at the end, with each option on a separate line."},
                     {"role": "user", "content": f"The story so far:\n\n{'\n\n'.join(st.session_state.history)}\n\n"
                                                 f"The reader chose: {selected_option}\n\n"
-                                                f"Continue the story, keeping it immersive and ending with two choices for the next step."}
+                                                f"Continue the story, keeping it immersive and ending with two choices for the next step, each on a new line."}
                 ]
             )
 
             new_full_story_response = next_story_response.choices[0].message.content
 
             # 🏷 Extract the new main story and the next two decision options
-            story_parts = new_full_story_response.split("\n\n")
-            new_story_text = "\n\n".join(story_parts[:-2])  # The actual story
-            new_options = story_parts[-2:]  # Last two lines contain the choices
+            story_lines = new_full_story_response.strip().split("\n")
+            new_story_text = "\n\n".join(story_lines[:-2]).strip()  # The actual story
+            new_options = [story_lines[-2].strip(), story_lines[-1].strip()]  # Last two lines contain the choices
 
             st.session_state.history.append(new_story_text)
             st.session_state.story = new_story_text
-            st.session_state.options = [opt.strip() for opt in new_options if opt.strip()]
+            st.session_state.options = new_options
             st.rerun()
 
         except Exception as e:
