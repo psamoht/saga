@@ -24,20 +24,26 @@ if "options" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 if "loading" not in st.session_state:
-    st.session_state.loading = False  # New state to track loading screen visibility
+    st.session_state.loading = False  # Controls visibility of the loading screen
+if "prev_story" not in st.session_state:
+    st.session_state.prev_story = ""  # Stores the last visible story
 
 # 🎩 GIF for loading screen
 loading_gif = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzlvam85OW9uZ2ZyMTNoaHdkYWd4a2lzb3p0a2J1bjJsaGR6bm1xeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LS3DxKAbJNkVCPDEn4/giphy.gif"
 
 def generate_story(user_topic, user_choice=None):
     """Handles story generation with OpenAI API while displaying a loading animation."""
-    st.session_state.loading = True  # Start loading animation
+    
+    # 🌀 Transition effect: Story fades out before loading screen appears
+    st.session_state.prev_story = st.session_state.story
+    st.session_state.loading = True  # Activate loading animation
+    time.sleep(0.5)  # Small delay to simulate fade-out effect
 
     with st.spinner("🪄 The story magic is happening..."):
         with st.empty():
             st.image(loading_gif, use_column_width=True)
 
-        time.sleep(1)  # Small delay for UX smoothness
+        time.sleep(1)  # Smooth UX effect
 
         try:
             prompt = f"Write a children's story about {user_topic}. "
@@ -64,11 +70,12 @@ def generate_story(user_topic, user_choice=None):
             story_text = "\n\n".join(story_lines[:-2]).strip()
             options = [story_lines[-2].strip(), story_lines[-1].strip()]
 
-            st.session_state.loading = False  # Stop loading animation once story is ready
+            # ✅ Deactivate loading screen once story is ready
+            st.session_state.loading = False
             return story_text, options
 
         except Exception as e:
-            st.session_state.loading = False  # Stop loading if an error occurs
+            st.session_state.loading = False  # Ensure the loading screen turns off in case of error
             return f"❌ Error: {str(e)}", []
 
 # 📜 Start of Streamlit UI
@@ -81,10 +88,15 @@ if topic and not st.session_state.story:
     st.session_state.story = story_text
     st.session_state.options = options
 
-# 📖 Display the current story
+# 🎭 Show loading screen only when API is processing
 if st.session_state.loading:
-    st.image(loading_gif, use_column_width=True)  # Show GIF only while loading
+    st.image(loading_gif, use_column_width=True)  # Show GIF while loading
 else:
+    # 📖 Display the previous story section as a fade effect
+    if st.session_state.prev_story:
+        st.markdown(f"<p style='font-size:18px; opacity: 0.5;'>{st.session_state.prev_story}</p>", unsafe_allow_html=True)
+    
+    # 📖 Display the new story
     if st.session_state.story:
         st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
