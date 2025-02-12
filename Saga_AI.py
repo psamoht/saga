@@ -23,20 +23,21 @@ if "options" not in st.session_state:
     st.session_state.options = []
 if "history" not in st.session_state:
     st.session_state.history = []
+if "loading" not in st.session_state:
+    st.session_state.loading = False  # New state to track loading screen visibility
 
-# 📜 Start of Streamlit UI
-st.title("📖 Saga – Be Part of the Story" if lang == "en" else "📖 Saga – Sei Teil der Geschichte")
-topic = st.text_input("🌟 Choose a topic for your story:" if lang == "en" else "🌟 Wähle ein Thema für deine Geschichte:")
-
-# 🎩 Add loading GIF
-loading_gif = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzc1NmJjN2JkN2Q0N2E5OGY3YmI5NzJiZjI1Y2Q1NDRjMWYwMmJhZiZjdD1n/26BRzozg4TCBXv6QU/giphy.gif"
+# 🎩 GIF for loading screen
+loading_gif = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzlvam85OW9uZ2ZyMTNoaHdkYWd4a2lzb3p0a2J1bjJsaGR6bm1xeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LS3DxKAbJNkVCPDEn4/giphy.gif"
 
 def generate_story(user_topic, user_choice=None):
-    """Handles story generation with OpenAI API."""
+    """Handles story generation with OpenAI API while displaying a loading animation."""
+    st.session_state.loading = True  # Start loading animation
+
     with st.spinner("🪄 The story magic is happening..."):
-        time.sleep(1)  # Small delay for smooth UX
         with st.empty():
             st.image(loading_gif, use_column_width=True)
+
+        time.sleep(1)  # Small delay for UX smoothness
 
         try:
             prompt = f"Write a children's story about {user_topic}. "
@@ -63,10 +64,16 @@ def generate_story(user_topic, user_choice=None):
             story_text = "\n\n".join(story_lines[:-2]).strip()
             options = [story_lines[-2].strip(), story_lines[-1].strip()]
 
+            st.session_state.loading = False  # Stop loading animation once story is ready
             return story_text, options
 
         except Exception as e:
+            st.session_state.loading = False  # Stop loading if an error occurs
             return f"❌ Error: {str(e)}", []
+
+# 📜 Start of Streamlit UI
+st.title("📖 Saga – Be Part of the Story" if lang == "en" else "📖 Saga – Sei Teil der Geschichte")
+topic = st.text_input("🌟 Choose a topic for your story:" if lang == "en" else "🌟 Wähle ein Thema für deine Geschichte:")
 
 if topic and not st.session_state.story:
     story_text, options = generate_story(topic)
@@ -75,24 +82,27 @@ if topic and not st.session_state.story:
     st.session_state.options = options
 
 # 📖 Display the current story
-if st.session_state.story:
-    st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
+if st.session_state.loading:
+    st.image(loading_gif, use_column_width=True)  # Show GIF only while loading
+else:
+    if st.session_state.story:
+        st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
-    # 🎭 Show decision buttons (Fix for incorrect button text)
-    selected_option = None
-    if len(st.session_state.options) == 2:
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button(st.session_state.options[0]):
-                selected_option = st.session_state.options[0]
-        with col2:
-            if st.button(st.session_state.options[1]):
-                selected_option = st.session_state.options[1]
+        # 🎭 Show decision buttons
+        selected_option = None
+        if len(st.session_state.options) == 2:
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(st.session_state.options[0]):
+                    selected_option = st.session_state.options[0]
+            with col2:
+                if st.button(st.session_state.options[1]):
+                    selected_option = st.session_state.options[1]
 
-    # ⏭️ Continue the story after a decision
-    if selected_option:
-        story_text, options = generate_story(topic, selected_option)
-        st.session_state.history.append(story_text)
-        st.session_state.story = story_text
-        st.session_state.options = options
-        st.rerun()
+        # ⏭️ Continue the story after a decision
+        if selected_option:
+            story_text, options = generate_story(topic, selected_option)
+            st.session_state.history.append(story_text)
+            st.session_state.story = story_text
+            st.session_state.options = options
+            st.rerun()
