@@ -25,25 +25,19 @@ if "history" not in st.session_state:
     st.session_state.history = []
 if "loading" not in st.session_state:
     st.session_state.loading = False  # Controls visibility of the loading screen
-if "prev_story" not in st.session_state:
-    st.session_state.prev_story = ""  # Stores the last visible story
 
 # 🎩 GIF for loading screen
 loading_gif = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzlvam85OW9uZ2ZyMTNoaHdkYWd4a2lzb3p0a2J1bjJsaGR6bm1xeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LS3DxKAbJNkVCPDEn4/giphy.gif"
 
 def generate_story(user_topic, user_choice=None):
     """Handles story generation with OpenAI API while displaying a loading animation."""
-    
-    # 🌀 Transition effect: Story fades out before loading screen appears
-    st.session_state.prev_story = st.session_state.story
-    st.session_state.loading = True  # Activate loading animation
-    time.sleep(0.5)  # Small delay to simulate fade-out effect
+    st.session_state.loading = True  # Start loading animation
 
     with st.spinner("🪄 The story magic is happening..."):
         with st.empty():
             st.image(loading_gif, use_column_width=True)
 
-        time.sleep(1)  # Smooth UX effect
+        time.sleep(1)  # Small delay for UX smoothness
 
         try:
             prompt = f"Write a children's story about {user_topic}. "
@@ -92,10 +86,6 @@ if topic and not st.session_state.story:
 if st.session_state.loading:
     st.image(loading_gif, use_column_width=True)  # Show GIF while loading
 else:
-    # 📖 Display the previous story section as a fade effect
-    if st.session_state.prev_story:
-        st.markdown(f"<p style='font-size:18px; opacity: 0.5;'>{st.session_state.prev_story}</p>", unsafe_allow_html=True)
-    
     # 📖 Display the new story
     if st.session_state.story:
         st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
