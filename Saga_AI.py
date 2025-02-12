@@ -2,7 +2,6 @@ import streamlit as st
 import openai
 import locale
 import re
-import time
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -23,88 +22,90 @@ if "options" not in st.session_state:
     st.session_state.options = []
 if "history" not in st.session_state:
     st.session_state.history = []
-if "loading" not in st.session_state:
-    st.session_state.loading = False  # Controls visibility of the loading screen
-
-# 🎩 GIF for loading screen
-loading_gif = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzlvam85OW9uZ2ZyMTNoaHdkYWd4a2lzb3p0a2J1bjJsaGR6bm1xeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LS3DxKAbJNkVCPDEn4/giphy.gif"
-
-def generate_story(user_topic, user_choice=None):
-    """Handles story generation with OpenAI API while displaying a loading animation."""
-    st.session_state.loading = True  # Start loading animation
-
-    with st.spinner("🪄 The story magic is happening..."):
-        with st.empty():
-            st.image(loading_gif, use_column_width=True)
-
-        time.sleep(1)  # Small delay for UX smoothness
-
-        try:
-            prompt = f"Write a children's story about {user_topic}. "
-            if user_choice:
-                prompt += f"The reader chose: {user_choice}. Continue the story."
-
-            response = openai.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": f"Create a fun, engaging children's story for a 5-year-old in {lang}. "
-                                                  f"Each section should be around 200 words long. "
-                                                  f"The story should flow naturally and end at a logical decision point, "
-                                                  f"where two possible story paths emerge. "
-                                                  f"The decisions should feel like a natural part of the story, without directly addressing the reader. "
-                                                  f"Clearly separate the two options at the end, with each option on a separate line."},
-                    {"role": "user", "content": prompt}
-                ]
-            )
-
-            full_story_response = response.choices[0].message.content
-
-            # 🏷 Extract the main story and the two decision options
-            story_lines = full_story_response.strip().split("\n")
-            story_text = "\n\n".join(story_lines[:-2]).strip()
-            options = [story_lines[-2].strip(), story_lines[-1].strip()]
-
-            # ✅ Deactivate loading screen once story is ready
-            st.session_state.loading = False
-            return story_text, options
-
-        except Exception as e:
-            st.session_state.loading = False  # Ensure the loading screen turns off in case of error
-            return f"❌ Error: {str(e)}", []
 
 # 📜 Start of Streamlit UI
 st.title("📖 Saga – Be Part of the Story" if lang == "en" else "📖 Saga – Sei Teil der Geschichte")
 topic = st.text_input("🌟 Choose a topic for your story:" if lang == "en" else "🌟 Wähle ein Thema für deine Geschichte:")
 
 if topic and not st.session_state.story:
-    story_text, options = generate_story(topic)
-    st.session_state.history.append(story_text)
-    st.session_state.story = story_text
-    st.session_state.options = options
+    try:
+        # 📝 Generate first section with a decision point
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": f"Create a fun, engaging children's story for a 5-year-old in {lang}. "
+                                              f"Each section should be around 200 words long. "
+                                              f"The story should flow naturally and end at a logical decision point, "
+                                              f"where two possible story paths emerge. "
+                                              f"The decisions should feel like a natural part of the story, without directly addressing the reader. "
+                                              f"Clearly separate the two options at the end, with each option on a separate line."},
+                {"role": "user", "content": f"Write a children's story about {topic}. "
+                                            f"Make sure that each story section is about 200 words long, "
+                                            f"ending with two choices for the next part of the story, each on a new line."}
+            ]
+        )
 
-# 🎭 Show loading screen only when API is processing
-if st.session_state.loading:
-    st.image(loading_gif, use_column_width=True)  # Show GIF while loading
-else:
-    # 📖 Display the new story
-    if st.session_state.story:
-        st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
+        full_story_response = response.choices[0].message.content
 
-        # 🎭 Show decision buttons
-        selected_option = None
-        if len(st.session_state.options) == 2:
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button(st.session_state.options[0]):
-                    selected_option = st.session_state.options[0]
-            with col2:
-                if st.button(st.session_state.options[1]):
-                    selected_option = st.session_state.options[1]
+        # 🏷 Extract the main story and the two decision options
+        story_lines = full_story_response.strip().split("\n")
+        
+        # Story content (everything except last two lines)
+        story_text = "\n\n".join(story_lines[:-2]).strip()
+        
+        # Last two lines are the decision options
+        options = [story_lines[-2].strip(), story_lines[-1].strip()]
 
-        # ⏭️ Continue the story after a decision
-        if selected_option:
-            story_text, options = generate_story(topic, selected_option)
-            st.session_state.history.append(story_text)
-            st.session_state.story = story_text
-            st.session_state.options = options
+        st.session_state.history.append(story_text)
+        st.session_state.story = story_text
+        st.session_state.options = options  # Ensure each button gets the correct text
+
+    except Exception as e:
+        st.error(f"❌ Error: {str(e)}")
+
+# 📖 Display the current story
+if st.session_state.story:
+    st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
+
+    # 🎭 Show decision buttons (Fix for incorrect button text)
+    selected_option = None
+    if len(st.session_state.options) == 2:
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button(st.session_state.options[0]):
+                selected_option = st.session_state.options[0]
+        with col2:
+            if st.button(st.session_state.options[1]):
+                selected_option = st.session_state.options[1]
+
+    # ⏭️ Continue the story after a decision
+    if selected_option:
+        try:
+            next_story_response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": f"Continue the children's story in {lang}, maintaining a fun, engaging tone. "
+                                                  f"Each section should be around 200 words long and end with a logical decision point. "
+                                                  f"The decisions should feel like a natural part of the story, "
+                                                  f"without directly addressing the reader. "
+                                                  f"Clearly separate the two options at the end, with each option on a separate line."},
+                    {"role": "user", "content": f"The story so far:\n\n{'\n\n'.join(st.session_state.history)}\n\n"
+                                                f"The reader chose: {selected_option}\n\n"
+                                                f"Continue the story, keeping it immersive and ending with two choices for the next step, each on a new line."}
+                ]
+            )
+
+            new_full_story_response = next_story_response.choices[0].message.content
+
+            # 🏷 Extract the new main story and the next two decision options
+            story_lines = new_full_story_response.strip().split("\n")
+            new_story_text = "\n\n".join(story_lines[:-2]).strip()  # The actual story
+            new_options = [story_lines[-2].strip(), story_lines[-1].strip()]  # Last two lines contain the choices
+
+            st.session_state.history.append(new_story_text)
+            st.session_state.story = new_story_text
+            st.session_state.options = new_options
             st.rerun()
+
+        except Exception as e:
+            st.error(f"❌ Error: {str(e)}")
