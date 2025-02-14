@@ -19,6 +19,8 @@ if "story" not in st.session_state:
     st.session_state.story = ""
 if "history" not in st.session_state:
     st.session_state.history = []
+if "user_decision" not in st.session_state:
+    st.session_state.user_decision = ""  # Stores last user input
 
 # 📜 Start of Streamlit UI
 st.title("📖 Saga – Be Part of the Story" if lang == "en" else "📖 Saga – Sei Teil der Geschichte")
@@ -52,27 +54,28 @@ if st.session_state.story:
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
     # ✍️ User Input for the Next Decision
-    user_decision = st.text_input("💡 What should happen next? Enter your idea:" if lang == "en" else "💡 Was soll als Nächstes passieren? Gib deine Idee ein:")
+    user_decision = st.text_input("💡 What should happen next? Enter your idea:" if lang == "en" else "💡 Was soll als Nächstes passieren? Gib deine Idee ein:", value="")
 
-    # ⏭️ Continue the story based on the user's input
-    if user_decision:
-        try:
-            next_story_response = openai.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": f"Continue the children's story in {lang}, maintaining a fun, engaging tone. "
-                                                  f"Each section should be around 200 words long and lead to another open-ended decision point. "
-                                                  f"The decision should be implied by the story's events, rather than explicitly listing choices."},
-                    {"role": "user", "content": f"The story so far:\n\n{'\n\n'.join(st.session_state.history)}\n\n"
-                                                f"The reader suggested: {user_decision}\n\n"
-                                                f"Continue the story based on this input, keeping the storytelling immersive and natural."}
-                ]
-            )
+    if st.button("Continue Story" if lang == "en" else "Geschichte fortsetzen"):
+        if user_decision.strip():
+            try:
+                next_story_response = openai.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": f"Continue the children's story in {lang}, maintaining a fun, engaging tone. "
+                                                      f"Each section should be around 200 words long and lead to another open-ended decision point. "
+                                                      f"The decision should be implied by the story's events, rather than explicitly listing choices."},
+                        {"role": "user", "content": f"The story so far:\n\n{'\n\n'.join(st.session_state.history)}\n\n"
+                                                    f"The reader suggested: {user_decision}\n\n"
+                                                    f"Continue the story based on this input, keeping the storytelling immersive and natural."}
+                    ]
+                )
 
-            new_story_response = next_story_response.choices[0].message.content
-            st.session_state.history.append(new_story_response)
-            st.session_state.story = new_story_response
-            st.rerun()
+                new_story_response = next_story_response.choices[0].message.content
+                st.session_state.history.append(new_story_response)
+                st.session_state.story = new_story_response
+                st.session_state.user_decision = ""  # Clear user input to prevent infinite loop
+                st.rerun()
 
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
