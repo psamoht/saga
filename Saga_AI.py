@@ -14,7 +14,7 @@ lang_options = {"English": "en", "Deutsch": "de"}
 selected_lang = st.selectbox("🌍 Select Language / Sprache wählen:", list(lang_options.keys()), index=0 if default_lang == "en" else 1)
 lang = lang_options[selected_lang]
 
-# 🏗 Session State Initialization
+# 🏗 Initialize Session State
 if "story" not in st.session_state:
     st.session_state.story = None
 if "history" not in st.session_state:
@@ -23,6 +23,8 @@ if "loading" not in st.session_state:
     st.session_state.loading = False
 if "user_decision" not in st.session_state:
     st.session_state.user_decision = None
+if "next_story" not in st.session_state:
+    st.session_state.next_story = None
 
 # 🎩 Loading GIF
 loading_gif = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzlvam85OW9uZ2ZyMTNoaHdkYWd4a2JsaGR6bm1xeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LS3DxKAbJNkVCPDEn4/giphy.gif"
@@ -37,13 +39,14 @@ topic = st.text_input("🌟 Choose a topic for your story:" if lang == "en" else
 if st.session_state.loading:
     st.image(loading_gif, use_container_width=True)
     st.markdown("<p style='text-align: center; font-size:18px;'>🪄 The story magic is happening...</p>", unsafe_allow_html=True)
-    st.stop()
+    st.stop()  # **Prevents UI from rendering while loading**
 
-# 🌟 Generate Initial Story
+# 🌟 Generate the initial story when a topic is entered
 if topic and st.session_state.story is None and not st.session_state.loading:
-    st.session_state.loading = True
-    st.rerun()
+    st.session_state.loading = True  # **Enable loading**
+    st.rerun()  # **Refresh UI to trigger loading screen**
 
+# 🌍 Generate Initial Story
 if st.session_state.loading and st.session_state.story is None:
     try:
         response = openai.chat.completions.create(
@@ -59,14 +62,14 @@ if st.session_state.loading and st.session_state.story is None:
             ]
         )
 
-        # Save the story and disable loading mode
+        # **Save story and disable loading mode**
         st.session_state.story = response.choices[0].message.content
         st.session_state.history.append(st.session_state.story)
-        st.session_state.loading = False
-        st.rerun()
+        st.session_state.loading = False  # **Turn off loading**
+        st.rerun()  # **Refresh UI to display story**
 
     except Exception as e:
-        st.session_state.loading = False
+        st.session_state.loading = False  # **Ensure loading stops even on error**
         st.error(f"❌ Error: {str(e)}")
 
 # 📖 Display Story When Available
@@ -78,11 +81,11 @@ if st.session_state.story:
 
     if st.button("Continue Story" if lang == "en" else "Geschichte fortsetzen"):
         if user_decision.strip():
-            st.session_state.loading = True
+            st.session_state.loading = True  # **Enable loading**
             st.session_state.user_decision = user_decision
             st.rerun()
 
-# 🔄 Continue the Story
+# 🔄 Generate Next Story Section
 if st.session_state.loading and st.session_state.story and st.session_state.user_decision:
     try:
         next_story_response = openai.chat.completions.create(
@@ -97,13 +100,17 @@ if st.session_state.loading and st.session_state.story and st.session_state.user
             ]
         )
 
-        # Save new story section and reset state
-        st.session_state.story = next_story_response.choices[0].message.content
+        # **Save new story section and reset state**
+        st.session_state.next_story = next_story_response.choices[0].message.content
+        st.session_state.loading = False  # **Disable loading**
+        st.session_state.user_decision = None  # **Reset user input**
+
+        # **Update story and history**
+        st.session_state.story = st.session_state.next_story
         st.session_state.history.append(st.session_state.story)
-        st.session_state.loading = False
-        st.session_state.user_decision = None
+        st.session_state.next_story = None  # **Clear temporary storage**
         st.rerun()
 
     except Exception as e:
-        st.session_state.loading = False
+        st.session_state.loading = False  # **Ensure loading stops on error**
         st.error(f"❌ Error: {str(e)}")
