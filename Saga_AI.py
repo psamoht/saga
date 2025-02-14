@@ -2,9 +2,9 @@ import streamlit as st
 import openai
 import locale
 
-# Use a valid OpenAI model that you have access to:
+# If your environment only has openai 0.27 to <1.0, ChatCompletion.create() is supported.
+# If "gpt-4o-mini" is not a real model in your environment, switch to "gpt-3.5-turbo".
 MODEL_NAME = "gpt-3.5-turbo"
-# If you do have GPT-4 access, you can switch to "gpt-4"
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -44,18 +44,18 @@ topic = st.text_input(
 # ─────────────────────────────────────────
 # Generate the INITIAL story (once)
 # ─────────────────────────────────────────
+# If the user provided a topic AND we have no story yet, call OpenAI inside a spinner.
 if topic and not st.session_state["story"]:
     with st.spinner("🪄 Creating your story..."):
         try:
-            # Use the new interface: openai.Chat.create()
-            response = openai.Chat.create(
+            response = openai.ChatCompletion.create(
                 model=MODEL_NAME,
                 messages=[
                     {
                         "role": "system",
                         "content": (
                             f"Create a fun, engaging children's story for a 5-year-old in {lang}. "
-                            f"Each section should be ~200 words long. "
+                            f"Each section should be around 200 words long. "
                             f"The story should flow naturally and end with an open-ended decision point."
                         )
                     },
@@ -88,7 +88,7 @@ if st.session_state["story"]:
     )
 
     # ─────────────────────────────────────
-    # Let the user decide what happens next
+    # Next decision input
     # ─────────────────────────────────────
     user_decision = st.text_input(
         "💡 What should happen next? Enter your idea:" if lang == "en" else "💡 Was soll als Nächstes passieren? Gib deine Idee ein:"
@@ -99,14 +99,14 @@ if st.session_state["story"]:
         if user_decision.strip():
             with st.spinner("🪄 Continuing the story..."):
                 try:
-                    next_response = openai.Chat.create(
+                    next_response = openai.ChatCompletion.create(
                         model=MODEL_NAME,
                         messages=[
                             {
                                 "role": "system",
                                 "content": (
-                                    f"Continue this children's story in {lang}, ~200 words, "
-                                    f"ending on a new open-ended decision point."
+                                    f"Continue the children's story in {lang}, ~200 words, "
+                                    f"leading to another open-ended decision point."
                                 )
                             },
                             {
@@ -120,7 +120,6 @@ if st.session_state["story"]:
                         ]
                     )
 
-                    # Extract the new story content
                     next_section = next_response.choices[0].message.content
                     st.session_state["story"] = next_section
                     st.session_state["history"].append(next_section)
@@ -128,8 +127,7 @@ if st.session_state["story"]:
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
 
-            # After the spinner, the new story is in session_state["story"],
-            # so we can display it directly in the same run:
+            # Now display the newly updated story
             st.markdown(
                 f"<p style='font-size:18px;'>{st.session_state['story']}</p>",
                 unsafe_allow_html=True
