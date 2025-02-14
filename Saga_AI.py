@@ -25,7 +25,7 @@ if "user_decision" not in st.session_state:
     st.session_state.user_decision = ""
 
 # 🎩 Loading GIF
-loading_gif = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzlvam85OW9uZ2ZyMTNoaHdkYWd4a2lzb3p0a2J1bjJsaGR6bm1xeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LS3DxKAbJNkVCPDEn4/giphy.gif"
+loading_gif = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzlvam85OW9uZ2ZyMTNoaHdkYWd4a2lzb3p0a2JsaGR6bm1xeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LS3DxKAbJNkVCPDEn4/giphy.gif"
 
 # 📜 UI Title
 st.title("📖 Saga – Be Part of the Story" if lang == "en" else "📖 Saga – Sei Teil der Geschichte")
@@ -37,11 +37,10 @@ topic = st.text_input("🌟 Choose a topic for your story:" if lang == "en" else
 if st.session_state.loading:
     st.image(loading_gif, use_container_width=True)
     st.markdown("<p style='text-align: center; font-size:18px;'>🪄 The story magic is happening...</p>", unsafe_allow_html=True)
-    st.stop()  # Prevents further execution until loading is finished
 
 # 🌟 Generate the initial story when topic is entered
 if topic and not st.session_state.story and not st.session_state.loading:
-    st.session_state.loading = True  # Activate loading screen
+    st.session_state.loading = True
     st.rerun()
 
 if st.session_state.loading and not st.session_state.story:
@@ -63,7 +62,7 @@ if st.session_state.loading and not st.session_state.story:
         st.session_state.story = response.choices[0].message.content
         st.session_state.history.append(st.session_state.story)
         st.session_state.loading = False  # Stop loading screen
-        st.rerun()
+        st.experimental_rerun()
 
     except Exception as e:
         st.session_state.loading = False  # Ensure loading stops even on error
@@ -80,7 +79,7 @@ if st.session_state.story and not st.session_state.loading:
         if user_decision.strip():
             st.session_state.loading = True  # Activate loading screen for next story part
             st.session_state.user_decision = user_decision
-            st.rerun()
+            st.experimental_rerun()
 
 # 🔄 Generate the next part of the story
 if st.session_state.loading and st.session_state.story and st.session_state.user_decision:
@@ -102,7 +101,7 @@ if st.session_state.loading and st.session_state.story and st.session_state.user
         st.session_state.history.append(st.session_state.story)
         st.session_state.loading = False  # Stop loading screen
         st.session_state.user_decision = ""  # Reset input
-        st.rerun()
+        st.experimental_rerun()
 
     except Exception as e:
         st.session_state.loading = False  # Ensure loading stops even on error
