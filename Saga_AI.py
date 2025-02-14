@@ -34,7 +34,7 @@ topic = st.text_input("🌟 Choose a topic for your story:" if lang == "en" else
 
 # 🌀 Show loading screen if a story is being generated
 if st.session_state.loading:
-    st.image(loading_gif, use_column_width=True)
+    st.image(loading_gif, use_container_width=True)  # ✅ FIXED: No more deprecated parameter
     st.markdown("<p style='text-align: center; font-size:18px;'>🪄 The story magic is happening...</p>", unsafe_allow_html=True)
     st.stop()  # Prevents rendering anything else while loading
 
