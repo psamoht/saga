@@ -16,16 +16,16 @@ lang = lang_options[selected_lang]
 
 # 🏗 Session State Initialization
 if "story" not in st.session_state:
-    st.session_state.story = ""
+    st.session_state.story = None
 if "history" not in st.session_state:
     st.session_state.history = []
 if "loading" not in st.session_state:
-    st.session_state.loading = False  # Controls loading screen state
+    st.session_state.loading = False
 if "user_decision" not in st.session_state:
-    st.session_state.user_decision = ""
+    st.session_state.user_decision = None
 
 # 🎩 Loading GIF
-loading_gif = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzlvam85OW9uZ2ZyMTNoaHdkYWd4a2lzb3p0a2JsaGR6bm1xeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LS3DxKAbJNkVCPDEn4/giphy.gif"
+loading_gif = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzlvam85OW9uZ2ZyMTNoaHdkYWd4a2JsaGR6bm1xeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LS3DxKAbJNkVCPDEn4/giphy.gif"
 
 # 📜 UI Title
 st.title("📖 Saga – Be Part of the Story" if lang == "en" else "📖 Saga – Sei Teil der Geschichte")
@@ -33,18 +33,18 @@ st.title("📖 Saga – Be Part of the Story" if lang == "en" else "📖 Saga �
 # 🌟 User Input for Story Topic
 topic = st.text_input("🌟 Choose a topic for your story:" if lang == "en" else "🌟 Wähle ein Thema für deine Geschichte:")
 
-# 🌀 Show loading screen if loading is active
+# 🌀 Show loading screen if active
 if st.session_state.loading:
     st.image(loading_gif, use_container_width=True)
     st.markdown("<p style='text-align: center; font-size:18px;'>🪄 The story magic is happening...</p>", unsafe_allow_html=True)
-    st.stop()  # Prevents further execution until loading is finished
+    st.stop()
 
-# 🌟 Generate the initial story when topic is entered
-if topic and not st.session_state.story and not st.session_state.loading:
+# 🌟 Generate Initial Story
+if topic and st.session_state.story is None and not st.session_state.loading:
     st.session_state.loading = True
     st.rerun()
 
-if st.session_state.loading and not st.session_state.story:
+if st.session_state.loading and st.session_state.story is None:
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
@@ -62,27 +62,27 @@ if st.session_state.loading and not st.session_state.story:
         # Save the story and disable loading mode
         st.session_state.story = response.choices[0].message.content
         st.session_state.history.append(st.session_state.story)
-        st.session_state.loading = False  # Stop loading screen
+        st.session_state.loading = False
         st.rerun()
 
     except Exception as e:
-        st.session_state.loading = False  # Ensure loading stops even on error
+        st.session_state.loading = False
         st.error(f"❌ Error: {str(e)}")
 
-# 📖 Display the generated story
-if st.session_state.story and not st.session_state.loading:
+# 📖 Display Story When Available
+if st.session_state.story:
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
-    # ✍️ User Input for the Next Decision
-    user_decision = st.text_input("💡 What should happen next? Enter your idea:" if lang == "en" else "💡 Was soll als Nächstes passieren? Gib deine Idee ein:", value="")
+    # ✍️ User Input for Next Decision
+    user_decision = st.text_input("💡 What should happen next? Enter your idea:" if lang == "en" else "💡 Was soll als Nächstes passieren? Gib deine Idee ein:", key="user_input")
 
     if st.button("Continue Story" if lang == "en" else "Geschichte fortsetzen"):
         if user_decision.strip():
-            st.session_state.loading = True  # Activate loading screen for next story part
+            st.session_state.loading = True
             st.session_state.user_decision = user_decision
             st.rerun()
 
-# 🔄 Generate the next part of the story
+# 🔄 Continue the Story
 if st.session_state.loading and st.session_state.story and st.session_state.user_decision:
     try:
         next_story_response = openai.chat.completions.create(
@@ -97,13 +97,13 @@ if st.session_state.loading and st.session_state.story and st.session_state.user
             ]
         )
 
-        # Save the new story section and stop loading screen
+        # Save new story section and reset state
         st.session_state.story = next_story_response.choices[0].message.content
         st.session_state.history.append(st.session_state.story)
-        st.session_state.loading = False  # Stop loading screen
-        st.session_state.user_decision = ""  # Reset input
+        st.session_state.loading = False
+        st.session_state.user_decision = None
         st.rerun()
 
     except Exception as e:
-        st.session_state.loading = False  # Ensure loading stops even on error
+        st.session_state.loading = False
         st.error(f"❌ Error: {str(e)}")
