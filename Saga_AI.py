@@ -37,6 +37,7 @@ topic = st.text_input("🌟 Choose a topic for your story:" if lang == "en" else
 if st.session_state.loading:
     st.image(loading_gif, use_container_width=True)
     st.markdown("<p style='text-align: center; font-size:18px;'>🪄 The story magic is happening...</p>", unsafe_allow_html=True)
+    st.stop()  # Prevents further execution until loading is finished
 
 # 🌟 Generate the initial story when topic is entered
 if topic and not st.session_state.story and not st.session_state.loading:
@@ -62,7 +63,7 @@ if st.session_state.loading and not st.session_state.story:
         st.session_state.story = response.choices[0].message.content
         st.session_state.history.append(st.session_state.story)
         st.session_state.loading = False  # Stop loading screen
-        st.experimental_rerun()
+        st.rerun()
 
     except Exception as e:
         st.session_state.loading = False  # Ensure loading stops even on error
@@ -79,7 +80,7 @@ if st.session_state.story and not st.session_state.loading:
         if user_decision.strip():
             st.session_state.loading = True  # Activate loading screen for next story part
             st.session_state.user_decision = user_decision
-            st.experimental_rerun()
+            st.rerun()
 
 # 🔄 Generate the next part of the story
 if st.session_state.loading and st.session_state.story and st.session_state.user_decision:
@@ -101,7 +102,7 @@ if st.session_state.loading and st.session_state.story and st.session_state.user
         st.session_state.history.append(st.session_state.story)
         st.session_state.loading = False  # Stop loading screen
         st.session_state.user_decision = ""  # Reset input
-        st.experimental_rerun()
+        st.rerun()
 
     except Exception as e:
         st.session_state.loading = False  # Ensure loading stops even on error
