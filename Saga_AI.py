@@ -21,78 +21,14 @@ lang = lang_options[selected_lang]
 # ─────────────────────────────────────────
 # Session State Initialization
 # ─────────────────────────────────────────
+# We only need to store the story and history.
 if "story" not in st.session_state:
-    st.session_state.story = None
+    st.session_state["story"] = None
 if "history" not in st.session_state:
-    st.session_state.history = []
-if "loading" not in st.session_state:
-    st.session_state.loading = False
-if "user_decision" not in st.session_state:
-    st.session_state.user_decision = None
-if "next_story" not in st.session_state:
-    st.session_state.next_story = None
-if "topic" not in st.session_state:
-    st.session_state.topic = None
-
-# 🎩 Loading GIF
-loading_gif = (
-    "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYzlvam85OW9uZ2Zy"
-    "MTNoaHdkYWd4a2JsaGR6bm1xeSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/"
-    "LS3DxKAbJNkVCPDEn4/giphy.gif"
-)
+    st.session_state["history"] = []
 
 # ─────────────────────────────────────────
-# STEP 1) Generate the INITIAL story if needed
-# ─────────────────────────────────────────
-if st.session_state.loading and st.session_state.story is None:
-    try:
-        # Use your custom model if you have it, otherwise "gpt-3.5-turbo" is common.
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",  # <-- Replace with "gpt-3.5-turbo" or "gpt-4" if needed
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        f"Create a fun, engaging children's story for a 5-year-old in {lang}. "
-                        f"Each section should be around 200 words long. "
-                        f"The story should flow naturally and lead to a decision point where the main character "
-                        f"needs to decide what to do next. This decision point should be obvious but not limited "
-                        f"to two specific options. It should feel open-ended, allowing different choices from the reader."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        f"Write a children's story about {st.session_state.topic}. "
-                        f"Ensure that the story section is about 200 words long and ends at an open-ended decision point."
-                    )
-                }
-            ]
-        )
-
-        st.session_state.story = response.choices[0].message.content
-        st.session_state.history.append(st.session_state.story)
-        st.session_state.loading = False
-        st.experimental_rerun()
-
-    except Exception as e:
-        st.session_state.loading = False
-        st.error(f"❌ Error: {str(e)}")
-        st.stop()
-
-# ─────────────────────────────────────────
-# STEP 2) If still loading, show spinner
-# ─────────────────────────────────────────
-if st.session_state.loading:
-    st.image(loading_gif, use_container_width=True)
-    st.markdown(
-        "<p style='text-align: center; font-size:18px;'>🪄 The story magic is happening...</p>",
-        unsafe_allow_html=True
-    )
-    st.stop()
-
-# ─────────────────────────────────────────
-# STEP 3) Main UI
+# Title and Topic Input
 # ─────────────────────────────────────────
 st.title(
     "📖 Saga – Be Part of the Story" if lang == "en" else "📖 Saga – Sei Teil der Geschichte"
@@ -102,80 +38,96 @@ topic = st.text_input(
     "🌟 Choose a topic for your story:" if lang == "en" else "🌟 Wähle ein Thema für deine Geschichte:"
 )
 
-# If user enters a topic, we have no story, and not currently loading -> load the story
-if topic and st.session_state.story is None and not st.session_state.loading:
-    st.session_state.topic = topic
-    st.session_state.loading = True
-    st.experimental_rerun()
+# ─────────────────────────────────────────
+# Generate the INITIAL story (once)
+# ─────────────────────────────────────────
+# If the user provided a topic AND we have no story yet, call OpenAI inside a spinner.
+if topic and not st.session_state["story"]:
+    with st.spinner("🪄 Creating your story..."):
+        try:
+            # Replace "gpt-4o-mini" with "gpt-3.5-turbo" or another valid model if needed
+            response = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"Create a fun, engaging children's story for a 5-year-old in {lang}. "
+                            f"Each section should be around 200 words. "
+                            f"The story should flow naturally and lead to a decision point where the main character "
+                            f"needs to decide what to do next, open-endedly."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Write a children's story about {topic}, about 200 words, "
+                            f"ending at a natural decision point."
+                        )
+                    }
+                ]
+            )
 
-# If we have a story, display it
-if st.session_state.story:
+            story = response.choices[0].message.content
+            st.session_state["story"] = story
+            st.session_state["history"].append(story)
+
+        except Exception as e:
+            st.error(f"❌ Error: {str(e)}")
+
+# ─────────────────────────────────────────
+# Show the story if we have one
+# ─────────────────────────────────────────
+if st.session_state["story"]:
+    # Display current story content
     st.markdown(
-        f"<p style='font-size:18px;'>{st.session_state.story}</p>",
+        f"<p style='font-size:18px;'>{st.session_state['story']}</p>",
         unsafe_allow_html=True
     )
 
-    # ✍️ Decision input
-    decision_input = st.text_input(
-        "💡 What should happen next? Enter your idea:"
-        if lang == "en"
-        else "💡 Was soll als Nächstes passieren? Gib deine Idee ein:",
-        key="decision_input_key"
+    # ─────────────────────────────────────
+    # Let the user decide what happens next
+    # ─────────────────────────────────────
+    user_decision = st.text_input(
+        "💡 What should happen next? Enter your idea:" if lang == "en" else "💡 Was soll als Nächstes passieren? Gib deine Idee ein:"
     )
 
-    # Button to continue
+    # Button to continue the story
     if st.button("Continue Story" if lang == "en" else "Geschichte fortsetzen"):
-        if decision_input.strip():
-            st.session_state.user_decision = decision_input
-            st.session_state.loading = True
-            st.experimental_rerun()
-
-# ─────────────────────────────────────────
-# STEP 4) Generate the NEXT story section
-# ─────────────────────────────────────────
-if (
-    st.session_state.loading
-    and st.session_state.story
-    and st.session_state.user_decision
-):
-    try:
-        next_story_response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",  # again, replace if needed
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        f"Continue the children's story in {lang}, maintaining a fun, engaging tone. "
-                        f"Each section should be around 200 words long and lead to another open-ended decision point. "
-                        f"The decision should be implied by the story's events, rather than explicitly listing choices."
+        if user_decision.strip():
+            with st.spinner("🪄 Continuing the story..."):
+                try:
+                    next_response = openai.ChatCompletion.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": (
+                                    f"Continue the children's story in {lang}, maintaining a fun, engaging tone. "
+                                    f"Each section ~200 words, ending at another open-ended decision point."
+                                )
+                            },
+                            {
+                                "role": "user",
+                                "content": (
+                                    f"The story so far:\n\n{'\n\n'.join(st.session_state['history'])}\n\n"
+                                    f"The reader suggested: {user_decision}\n\n"
+                                    f"Continue the story in a fun, immersive way."
+                                )
+                            }
+                        ]
                     )
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        f"The story so far:\n\n{'\n\n'.join(st.session_state.history)}\n\n"
-                        f"The reader suggested: {st.session_state.user_decision}\n\n"
-                        f"Continue the story based on this input, keeping the storytelling immersive and natural."
-                    )
-                }
-            ]
-        )
 
-        # Save the new story section
-        st.session_state.next_story = next_story_response.choices[0].message.content
+                    next_section = next_response.choices[0].message.content
+                    # Update session state
+                    st.session_state["story"] = next_section
+                    st.session_state["history"].append(next_section)
 
-        # Turn off loading, reset decision
-        st.session_state.loading = False
-        st.session_state.user_decision = None
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
 
-        # Update displayed story and history
-        st.session_state.story = st.session_state.next_story
-        st.session_state.history.append(st.session_state.story)
-        st.session_state.next_story = None
-
-        st.experimental_rerun()
-
-    except Exception as e:
-        st.session_state.loading = False
-        st.error(f"❌ Error: {str(e)}")
-        st.stop()
+            # After the spinner, re-display the new story (no re-run needed, it all happens in one script pass)
+            st.markdown(
+                f"<p style='font-size:18px;'>{st.session_state['story']}</p>",
+                unsafe_allow_html=True
+            )
