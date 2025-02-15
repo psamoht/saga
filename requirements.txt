@@ -1,2 +1,7 @@
-streamlit
 openai
+streamlit
+speechrecognition
+gtts
+pydub
+sounddevice
+numpy
