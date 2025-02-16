@@ -20,7 +20,7 @@ lang_options = {"English": "en", "Deutsch": "de"}
 selected_lang = st.selectbox("🌍 Select Language / Sprache wählen:", list(lang_options.keys()), index=0 if default_lang == "en" else 1)
 lang = lang_options[selected_lang]
 
-# 🏗 Session State Initialization
+# 🏗 **Session State Initialization**
 if "story" not in st.session_state:
     st.session_state.story = ""
 if "history" not in st.session_state:
@@ -29,8 +29,12 @@ if "user_decision" not in st.session_state:
     st.session_state.user_decision = None
 if "audio_file" not in st.session_state:
     st.session_state.audio_file = None
+if "topic" not in st.session_state:
+    st.session_state.topic = None
+if "transcribed_text" not in st.session_state:
+    st.session_state.transcribed_text = None
 
-# 🎙️ **Check and Fix WAV File Natively**
+# 🎙️ **Ensure WAV File is Valid**
 def validate_wav(audio_path):
     """ Ensures the uploaded WAV file is valid and playable. """
     try:
@@ -76,6 +80,9 @@ def transcribe_audio(audio_path):
         with sr.AudioFile(valid_wav_path) as source:
             audio = recognizer.record(source)
         text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
+
+        # Store transcribed text in session state
+        st.session_state.transcribed_text = text
         return text
     except sr.UnknownValueError:
         st.warning("⚠️ Could not understand the audio. Try speaking more clearly.")
@@ -120,7 +127,7 @@ def process_uploaded_audio(audio_file):
 
 audio_path = None
 
-if uploaded_audio:
+if uploaded_audio and not st.session_state.transcribed_text:
     audio_path = process_uploaded_audio(uploaded_audio)
 
     # 🔎 **Process Audio if Available**
@@ -128,12 +135,13 @@ if uploaded_audio:
         topic = transcribe_audio(audio_path)
         if topic:
             st.success(f"✅ You said: {topic}")
+            st.session_state.topic = topic
             st.session_state.story = f"Generating a story about {topic}..."
             st.rerun()
 
 # 🌟 **Generate Initial Story**
-if st.session_state.story and st.session_state.story.startswith("Generating a story"):
-    topic = st.session_state.story.replace("Generating a story about ", "").strip()
+if st.session_state.topic and st.session_state.story.startswith("Generating a story"):
+    topic = st.session_state.topic
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
@@ -154,6 +162,9 @@ if st.session_state.story and st.session_state.story.startswith("Generating a st
 
         # Convert story to speech
         st.session_state.audio_file = text_to_speech(st.session_state.story)
+
+        # Reset the transcribed text to prevent flickering
+        st.session_state.transcribed_text = None
         st.rerun()
 
     except Exception as e:
