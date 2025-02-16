@@ -7,7 +7,7 @@ import tempfile
 from gtts import gTTS
 from pydub import AudioSegment
 from pydub.playback import play
-from streamlit_audio_recorder import st_audio_recorder
+from streamlit_mic_recorder import mic_recorder
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -61,7 +61,7 @@ st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ S
 # 🎤 Welcome Message & Voice Input for Topic
 if not st.session_state.story:
     st.info("📢 Welcome! Please speak a topic for your story.")
-    audio_bytes = st_audio_recorder("🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen", format="wav")
+    audio_bytes = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
     
     if audio_bytes:
         topic = transcribe_audio(audio_bytes)
@@ -105,7 +105,7 @@ if st.session_state.story and st.session_state.audio_file:
 
     # 🎤 Ask for Next Decision
     st.info("🎤 What should happen next? Speak your decision.")
-    audio_bytes = st_audio_recorder("🎤 Speak Decision" if lang == "en" else "🎤 Entscheidung sprechen", format="wav")
+    audio_bytes = mic_recorder(start_prompt="🎤 Speak Decision" if lang == "en" else "🎤 Entscheidung sprechen")
     
     if audio_bytes:
         user_decision = transcribe_audio(audio_bytes)
