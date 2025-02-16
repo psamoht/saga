@@ -49,7 +49,7 @@ def transcribe_audio(audio_dict):
 
     # 🎧 Debug: Allow user to play back their own recording
     st.audio(temp_audio_path, format="audio/wav")
-    st.info("🎧 This is your recorded audio. If you hear nothing, your microphone is not working correctly.")
+    st.info("🎧 This is your recorded audio. If you hear only white noise, the microphone is not working correctly.")
 
     # Process audio with SpeechRecognition
     recognizer = sr.Recognizer()
@@ -77,22 +77,22 @@ def text_to_speech(text):
 # 📜 UI Title
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
 
-# 🎤 Welcome Message & Voice Input for Topic (With Mobile Support)
+# 🎤 Welcome Message & Voice Input for Topic (With Debugging)
 st.info("📢 Speak a topic for your story.")
+
+# 🛠 Manual Override for Testing
+use_mic = st.toggle("🎙 Use Microphone", value=True)
+if not use_mic:
+    uploaded_audio = st.file_uploader("📤 Upload an audio file (WAV/MP3)", type=["wav", "mp3"])
 
 if st.session_state.story == "":
     audio_dict = None
 
-    # 🔹 Check if user is on mobile
-    if st.session_state.get("is_mobile", None) is None:
-        st.session_state.is_mobile = st.file_uploader("📱 Upload an audio file if the microphone does not work.", type=["wav", "mp3"])
-
-    if st.session_state.is_mobile:
-        uploaded_audio = st.file_uploader("📤 Upload an audio file (WAV/MP3)", type=["wav", "mp3"])
-        if uploaded_audio:
-            audio_dict = {"bytes": uploaded_audio.read()}
-    else:
+    if use_mic:
         audio_dict = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
+
+    elif uploaded_audio:
+        audio_dict = {"bytes": uploaded_audio.read()}
 
     if audio_dict:
         topic = transcribe_audio(audio_dict)
