@@ -5,9 +5,11 @@ import speech_recognition as sr
 import os
 import tempfile
 import wave
-from gtts import gTTS
 import io
-from pydub import AudioSegment
+from gtts import gTTS
+from mutagen.mp3 import MP3  # 🔥 Fix for MP3 duration reading
+from pydub import AudioSegment  # ✅ Used only for WAV processing (not MP3)
+from pydub.utils import mediainfo
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -40,7 +42,7 @@ def transcribe_audio(audio_path):
 
     # Play back audio to debug
     st.audio(audio_path, format="audio/wav")
-    st.info("🎧 Playing back recorded/uploaded audio. If silent, recording failed.")
+    st.info("🎧 Playing back uploaded audio. If silent, file processing failed.")
 
     recognizer = sr.Recognizer()
     try:
@@ -73,24 +75,35 @@ st.info("📢 Upload a voice file to start your story.")
 
 uploaded_audio = st.file_uploader("📤 Upload a WAV/MP3 file", type=["wav", "mp3"])
 
-if uploaded_audio:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-        temp_audio_path = temp_audio.name
-        file_extension = uploaded_audio.name.split(".")[-1].lower()
-
-        # **Fix MP3 issue by decoding manually (No ffmpeg)**
-        try:
-            audio = AudioSegment.from_file(io.BytesIO(uploaded_audio.read()), format=file_extension)
+def convert_mp3_to_wav(mp3_file):
+    """ Converts MP3 to WAV manually without using ffmpeg. """
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
+            wav_path = temp_wav.name
+            audio = AudioSegment.from_file(mp3_file, format="mp3")
             audio = audio.set_channels(1).set_frame_rate(44100).set_sample_width(2)  # Convert to correct format
-            audio.export(temp_audio_path, format="wav")
-            st.success("✅ Audio successfully processed and converted to WAV.")
-        except Exception as e:
-            st.error(f"❌ Error processing audio file: {str(e)}")
-            temp_audio_path = None
+            audio.export(wav_path, format="wav")
+        return wav_path
+    except Exception as e:
+        st.error(f"❌ MP3 conversion error: {str(e)}")
+        return None
+
+audio_path = None
+
+if uploaded_audio:
+    file_extension = uploaded_audio.name.split(".")[-1].lower()
+
+    # Convert MP3 to WAV manually
+    if file_extension == "mp3":
+        audio_path = convert_mp3_to_wav(uploaded_audio)
+    else:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            temp_audio.write(uploaded_audio.read())
+            audio_path = temp_audio.name
 
     # 🔎 **Process Audio if Available**
-    if temp_audio_path:
-        topic = transcribe_audio(temp_audio_path)
+    if audio_path:
+        topic = transcribe_audio(audio_path)
         if topic:
             st.success(f"✅ You said: {topic}")
             st.session_state.story = f"Generating a story about {topic}..."
