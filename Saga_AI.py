@@ -15,7 +15,7 @@ from streamlit_mic_recorder import mic_recorder
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # 🌍 Detect system language for default selection
-user_locale = locale.getdefaultlocale()[0]
+user_locale = locale.getlocale()[0]  # Updated method to avoid deprecation warning
 default_lang = "de" if user_locale and "de" in user_locale else "en"
 
 # 🌐 Language Selection Dropdown
@@ -34,24 +34,17 @@ if "audio_file" not in st.session_state:
     st.session_state.audio_file = None
 
 # 🎙️ Speech-to-Text Function (Fixed)
-def transcribe_audio(audio_numpy):
-    if audio_numpy is None:
-        st.warning("⚠️ No audio detected. Please try speaking again.")
+def transcribe_audio(audio_dict):
+    if not audio_dict or "bytes" not in audio_dict:
+        st.warning("⚠️ No valid audio detected. Please try speaking again.")
         return None
+
+    audio_bytes = audio_dict["bytes"]  # Extract actual audio data
 
     recognizer = sr.Recognizer()
     
-    # Convert NumPy array to WAV format
-    with io.BytesIO() as temp_audio:
-        with wave.open(temp_audio, "wb") as wav_file:
-            wav_file.setnchannels(1)  # Mono audio
-            wav_file.setsampwidth(2)  # 16-bit audio
-            wav_file.setframerate(44100)  # Sample rate
-            wav_file.writeframes(audio_numpy.tobytes())  # Convert NumPy to bytes
-        
-        temp_audio.seek(0)  # Reset pointer for reading
-
-        # Process with SpeechRecognition
+    # Convert bytes to WAV format
+    with io.BytesIO(audio_bytes) as temp_audio:
         with sr.AudioFile(temp_audio) as source:
             audio = recognizer.record(source)
         try:
@@ -77,10 +70,10 @@ st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ S
 # 🎤 Welcome Message & Voice Input for Topic
 if not st.session_state.story:
     st.info("📢 Welcome! Please speak a topic for your story.")
-    audio_bytes = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
+    audio_dict = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
     
-    if audio_bytes is not None:
-        topic = transcribe_audio(audio_bytes)
+    if audio_dict:
+        topic = transcribe_audio(audio_dict)
         if topic:
             st.success(f"✅ You said: {topic}")
             st.session_state.story = f"Generating a story about {topic}..."
@@ -121,10 +114,10 @@ if st.session_state.story and st.session_state.audio_file:
 
     # 🎤 Ask for Next Decision
     st.info("🎤 What should happen next? Speak your decision.")
-    audio_bytes = mic_recorder(start_prompt="🎤 Speak Decision" if lang == "en" else "🎤 Entscheidung sprechen")
+    audio_dict = mic_recorder(start_prompt="🎤 Speak Decision" if lang == "en" else "🎤 Entscheidung sprechen")
     
-    if audio_bytes is not None:
-        user_decision = transcribe_audio(audio_bytes)
+    if audio_dict:
+        user_decision = transcribe_audio(audio_dict)
         if user_decision:
             st.success(f"✅ You said: {user_decision}")
             st.session_state.user_decision = user_decision
