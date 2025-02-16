@@ -6,7 +6,6 @@ import os
 import tempfile
 import io
 from gtts import gTTS
-from pydub import AudioSegment
 from streamlit_mic_recorder import mic_recorder
 
 # OpenAI API Key
@@ -37,14 +36,14 @@ def transcribe_audio(audio_dict):
         st.warning("⚠️ No valid audio detected. Please try speaking again.")
         return None
 
-    audio_bytes = audio_dict["bytes"]  # Extract audio data
+    audio_bytes = audio_dict["bytes"]  # Extract raw audio data
 
-    # Convert MP3 (or unknown format) to WAV
+    # Save audio to a temporary WAV file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+        temp_audio.write(audio_bytes)
         temp_audio_path = temp_audio.name
-        audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")  # Convert MP3 to WAV
-        audio.export(temp_audio_path, format="wav")
 
+    # Process audio with SpeechRecognition
     recognizer = sr.Recognizer()
     with sr.AudioFile(temp_audio_path) as source:
         audio = recognizer.record(source)
@@ -57,6 +56,8 @@ def transcribe_audio(audio_dict):
     except sr.RequestError:
         st.error("❌ Error: Could not connect to speech recognition service.")
         return None
+    finally:
+        os.remove(temp_audio_path)  # Clean up the temp file
 
 # 🔊 Text-to-Speech Function
 def text_to_speech(text):
