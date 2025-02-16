@@ -7,9 +7,7 @@ import tempfile
 import wave
 import io
 from gtts import gTTS
-from mutagen.mp3 import MP3  # 🔥 Fix for MP3 duration reading
-from pydub import AudioSegment  # ✅ Used only for WAV processing (not MP3)
-from pydub.utils import mediainfo
+from pydub import AudioSegment  # ✅ Used only for WAV processing
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
