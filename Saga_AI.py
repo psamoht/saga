@@ -6,8 +6,8 @@ import os
 import tempfile
 import wave
 import io
+import torchaudio  # ✅ Fix for MP3/WAV conversion without ffmpeg
 from gtts import gTTS
-from pydub import AudioSegment  # ✅ Works without ffmpeg in this case
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -74,14 +74,19 @@ st.info("📢 Upload a voice file to start your story.")
 uploaded_audio = st.file_uploader("📤 Upload a WAV/MP3 file", type=["wav", "mp3"])
 
 def convert_mp3_to_wav(mp3_bytes):
-    """ Converts MP3 bytes to WAV using pydub (no ffmpeg needed). """
+    """ Converts MP3 bytes to WAV using torchaudio. """
     try:
-        audio = AudioSegment.from_file(io.BytesIO(mp3_bytes), format="mp3")
-        audio = audio.set_channels(1).set_frame_rate(44100).set_sample_width(2)
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
-            audio.export(temp_wav.name, format="wav")
-            return temp_wav.name
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_mp3:
+            temp_mp3.write(mp3_bytes)
+            temp_mp3.flush()
+            
+            # ✅ Convert MP3 to WAV using torchaudio
+            waveform, sample_rate = torchaudio.load(temp_mp3.name)
+            
+            # Save as WAV
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
+                torchaudio.save(temp_wav.name, waveform, sample_rate, format="wav")
+                return temp_wav.name
     except Exception as e:
         st.error(f"❌ MP3 conversion error: {str(e)}")
         return None
