@@ -30,28 +30,26 @@ if "user_decision" not in st.session_state:
 if "audio_file" not in st.session_state:
     st.session_state.audio_file = None
 
-# 🎙️ Speech-to-Text Function (With Debugging)
-def transcribe_audio(audio_dict):
-    if not audio_dict or "bytes" not in audio_dict:
+# 🎙️ **Speech-to-Text Function (With Debugging)**
+def transcribe_audio(audio_bytes):
+    if not audio_bytes:
         st.warning("⚠️ No valid audio detected. Please try speaking again.")
         return None
 
-    audio_bytes = audio_dict["bytes"]  # Extract raw audio data
-
-    # Save audio as a proper WAV file
+    # Save the audio as a WAV file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
         temp_audio_path = temp_audio.name
         with wave.open(temp_audio_path, "wb") as wav_file:
             wav_file.setnchannels(1)  # Mono audio
             wav_file.setsampwidth(2)  # 16-bit audio
-            wav_file.setframerate(44100)  # Sample rate
+            wav_file.setframerate(44100)  # Standard sample rate
             wav_file.writeframes(audio_bytes)
 
-    # 🎧 Debug: Allow user to play back their own recording
+    # 🎧 **Debugging: Play back the recorded/uploaded audio**
     st.audio(temp_audio_path, format="audio/wav")
-    st.info("🎧 This is your recorded audio. If you hear only white noise, the microphone is not working correctly.")
+    st.info("🎧 This is your recorded/uploaded audio. If you hear only white noise, the microphone is not working correctly.")
 
-    # Process audio with SpeechRecognition
+    # 🎤 **Process audio with SpeechRecognition**
     recognizer = sr.Recognizer()
     with sr.AudioFile(temp_audio_path) as source:
         audio = recognizer.record(source)
@@ -67,41 +65,43 @@ def transcribe_audio(audio_dict):
     finally:
         os.remove(temp_audio_path)  # Clean up the temp file
 
-# 🔊 Text-to-Speech Function
+# 🔊 **Text-to-Speech Function**
 def text_to_speech(text):
     tts = gTTS(text, lang="de" if lang == "de" else "en")
     temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     tts.save(temp_audio.name)
     return temp_audio.name
 
-# 📜 UI Title
+# 📜 **UI Title**
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
 
-# 🎤 Welcome Message & Voice Input for Topic (With Debugging)
-st.info("📢 Speak a topic for your story.")
+# 🎤 **Microphone & File Upload (With Debugging)**
+st.info("📢 Speak a topic for your story or upload a voice file.")
 
-# 🛠 Manual Override for Testing
-use_mic = st.toggle("🎙 Use Microphone", value=True)
-if not use_mic:
-    uploaded_audio = st.file_uploader("📤 Upload an audio file (WAV/MP3)", type=["wav", "mp3"])
+# **Allow switching between microphone and file upload**
+input_method = st.radio("Choose input method:", ["🎙 Microphone", "📤 Upload Audio File"])
 
-if st.session_state.story == "":
-    audio_dict = None
+audio_bytes = None
 
-    if use_mic:
-        audio_dict = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
+if input_method == "🎙 Microphone":
+    audio_dict = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
+    if audio_dict and "bytes" in audio_dict:
+        audio_bytes = audio_dict["bytes"]
 
-    elif uploaded_audio:
-        audio_dict = {"bytes": uploaded_audio.read()}
+elif input_method == "📤 Upload Audio File":
+    uploaded_audio = st.file_uploader("📤 Upload a WAV/MP3 file", type=["wav", "mp3"])
+    if uploaded_audio:
+        audio_bytes = uploaded_audio.read()
 
-    if audio_dict:
-        topic = transcribe_audio(audio_dict)
-        if topic:
-            st.success(f"✅ You said: {topic}")
-            st.session_state.story = f"Generating a story about {topic}..."
-            st.rerun()
+# 🔎 **Process Audio if Available**
+if audio_bytes:
+    topic = transcribe_audio(audio_bytes)
+    if topic:
+        st.success(f"✅ You said: {topic}")
+        st.session_state.story = f"Generating a story about {topic}..."
+        st.rerun()
 
-# 🌟 Generate Initial Story
+# 🌟 **Generate Initial Story**
 if st.session_state.story and st.session_state.story.startswith("Generating a story"):
     topic = st.session_state.story.replace("Generating a story about ", "").strip()
     try:
@@ -129,7 +129,7 @@ if st.session_state.story and st.session_state.story.startswith("Generating a st
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
 
-# 📖 Play and Display Story
+# 📖 **Play and Display Story**
 if st.session_state.story and st.session_state.audio_file:
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
     st.audio(st.session_state.audio_file, format="audio/mp3")
