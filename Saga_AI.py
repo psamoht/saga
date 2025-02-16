@@ -12,7 +12,7 @@ from streamlit_mic_recorder import mic_recorder
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # 🌍 Detect system language for default selection
-user_locale = locale.getlocale()[0]  # Avoids deprecated `getdefaultlocale()`
+user_locale = locale.getlocale()[0]  
 default_lang = "de" if user_locale and "de" in user_locale else "en"
 
 # 🌐 Language Selection Dropdown
@@ -30,28 +30,13 @@ if "user_decision" not in st.session_state:
 if "audio_file" not in st.session_state:
     st.session_state.audio_file = None
 
-# 🎙️ **Speech-to-Text Function (With Debugging)**
-def transcribe_audio(audio_bytes):
-    if not audio_bytes:
-        st.warning("⚠️ No valid audio detected. Please try speaking again.")
-        return None
+# 🎙️ **Speech-to-Text Function (Fixed)**
+def transcribe_audio(audio_path):
+    st.audio(audio_path, format="audio/wav")
+    st.info("🎧 This is your recorded/uploaded audio. If you hear only white noise, the file might be corrupted.")
 
-    # Save the audio as a WAV file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-        temp_audio_path = temp_audio.name
-        with wave.open(temp_audio_path, "wb") as wav_file:
-            wav_file.setnchannels(1)  # Mono audio
-            wav_file.setsampwidth(2)  # 16-bit audio
-            wav_file.setframerate(44100)  # Standard sample rate
-            wav_file.writeframes(audio_bytes)
-
-    # 🎧 **Debugging: Play back the recorded/uploaded audio**
-    st.audio(temp_audio_path, format="audio/wav")
-    st.info("🎧 This is your recorded/uploaded audio. If you hear only white noise, the microphone is not working correctly.")
-
-    # 🎤 **Process audio with SpeechRecognition**
     recognizer = sr.Recognizer()
-    with sr.AudioFile(temp_audio_path) as source:
+    with sr.AudioFile(audio_path) as source:
         audio = recognizer.record(source)
     try:
         text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
@@ -62,8 +47,6 @@ def transcribe_audio(audio_bytes):
     except sr.RequestError:
         st.error("❌ Error: Could not connect to speech recognition service.")
         return None
-    finally:
-        os.remove(temp_audio_path)  # Clean up the temp file
 
 # 🔊 **Text-to-Speech Function**
 def text_to_speech(text):
@@ -75,27 +58,33 @@ def text_to_speech(text):
 # 📜 **UI Title**
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
 
-# 🎤 **Microphone & File Upload (With Debugging)**
+# 🎤 **Microphone & File Upload (Fixed)**
 st.info("📢 Speak a topic for your story or upload a voice file.")
 
 # **Allow switching between microphone and file upload**
 input_method = st.radio("Choose input method:", ["🎙 Microphone", "📤 Upload Audio File"])
 
-audio_bytes = None
+audio_path = None
 
 if input_method == "🎙 Microphone":
     audio_dict = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
     if audio_dict and "bytes" in audio_dict:
-        audio_bytes = audio_dict["bytes"]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            temp_audio.write(audio_dict["bytes"])
+            temp_audio_path = temp_audio.name
+        audio_path = temp_audio_path
 
 elif input_method == "📤 Upload Audio File":
     uploaded_audio = st.file_uploader("📤 Upload a WAV/MP3 file", type=["wav", "mp3"])
     if uploaded_audio:
-        audio_bytes = uploaded_audio.read()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+            temp_audio.write(uploaded_audio.read())
+            temp_audio_path = temp_audio.name
+        audio_path = temp_audio_path
 
 # 🔎 **Process Audio if Available**
-if audio_bytes:
-    topic = transcribe_audio(audio_bytes)
+if audio_path:
+    topic = transcribe_audio(audio_path)
     if topic:
         st.success(f"✅ You said: {topic}")
         st.session_state.story = f"Generating a story about {topic}..."
