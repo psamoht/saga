@@ -6,8 +6,8 @@ import os
 import tempfile
 import wave
 import io
+import audioread  # ✅ Fix for MP3 reading without ffmpeg
 from gtts import gTTS
-from pydub import AudioSegment  # ✅ Used only for WAV processing
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -31,7 +31,7 @@ if "user_decision" not in st.session_state:
 if "audio_file" not in st.session_state:
     st.session_state.audio_file = None
 
-# 🎙️ **Speech-to-Text Function (Fixed)**
+# 🎙️ **Speech-to-Text Function**
 def transcribe_audio(audio_path):
     """ Converts speech to text from an audio file. """
     if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
@@ -68,7 +68,7 @@ def text_to_speech(text):
 # 📜 **UI Title**
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
 
-# 🎤 **File Upload Only (No Mic Recording)**
+# 🎤 **File Upload**
 st.info("📢 Upload a voice file to start your story.")
 
 uploaded_audio = st.file_uploader("📤 Upload a WAV/MP3 file", type=["wav", "mp3"])
@@ -78,9 +78,16 @@ def convert_mp3_to_wav(mp3_file):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
             wav_path = temp_wav.name
-            audio = AudioSegment.from_file(mp3_file, format="mp3")
-            audio = audio.set_channels(1).set_frame_rate(44100).set_sample_width(2)  # Convert to correct format
-            audio.export(wav_path, format="wav")
+            
+            # ✅ Use audioread instead of pydub
+            with audioread.audio_open(mp3_file) as reader, wave.open(wav_path, "wb") as wav_file:
+                wav_file.setnchannels(reader.channels)
+                wav_file.setsampwidth(2)  # 16-bit audio
+                wav_file.setframerate(reader.samplerate)
+
+                for buffer in reader:
+                    wav_file.writeframes(buffer)
+        
         return wav_path
     except Exception as e:
         st.error(f"❌ MP3 conversion error: {str(e)}")
