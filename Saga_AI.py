@@ -6,8 +6,8 @@ import os
 import tempfile
 import wave
 import io
-import audioread  # ✅ Fix for MP3 reading without ffmpeg
 from gtts import gTTS
+from pydub import AudioSegment  # ✅ Works without ffmpeg in this case
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -73,22 +73,15 @@ st.info("📢 Upload a voice file to start your story.")
 
 uploaded_audio = st.file_uploader("📤 Upload a WAV/MP3 file", type=["wav", "mp3"])
 
-def convert_mp3_to_wav(mp3_file):
-    """ Converts MP3 to WAV manually without using ffmpeg. """
+def convert_mp3_to_wav(mp3_bytes):
+    """ Converts MP3 bytes to WAV using pydub (no ffmpeg needed). """
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
-            wav_path = temp_wav.name
-            
-            # ✅ Use audioread instead of pydub
-            with audioread.audio_open(mp3_file) as reader, wave.open(wav_path, "wb") as wav_file:
-                wav_file.setnchannels(reader.channels)
-                wav_file.setsampwidth(2)  # 16-bit audio
-                wav_file.setframerate(reader.samplerate)
+        audio = AudioSegment.from_file(io.BytesIO(mp3_bytes), format="mp3")
+        audio = audio.set_channels(1).set_frame_rate(44100).set_sample_width(2)
 
-                for buffer in reader:
-                    wav_file.writeframes(buffer)
-        
-        return wav_path
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
+            audio.export(temp_wav.name, format="wav")
+            return temp_wav.name
     except Exception as e:
         st.error(f"❌ MP3 conversion error: {str(e)}")
         return None
@@ -100,7 +93,7 @@ if uploaded_audio:
 
     # Convert MP3 to WAV manually
     if file_extension == "mp3":
-        audio_path = convert_mp3_to_wav(uploaded_audio)
+        audio_path = convert_mp3_to_wav(uploaded_audio.read())
     else:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
             temp_audio.write(uploaded_audio.read())
