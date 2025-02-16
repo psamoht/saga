@@ -7,7 +7,7 @@ import tempfile
 import wave
 import io
 from gtts import gTTS
-from mutagen.mp3 import MP3  # ✅ Read MP3 duration without conversion
+from pydub import AudioSegment  # ✅ Convert WAV to PCM WAV if needed
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -31,6 +31,29 @@ if "user_decision" not in st.session_state:
 if "audio_file" not in st.session_state:
     st.session_state.audio_file = None
 
+# 🎙️ **Ensure WAV is Proper PCM Format**
+def ensure_pcm_wav(audio_path):
+    """ Converts non-PCM WAV files to proper PCM format. """
+    try:
+        with wave.open(audio_path, "rb") as wav_file:
+            sample_width = wav_file.getsampwidth()
+            channels = wav_file.getnchannels()
+            frame_rate = wav_file.getframerate()
+        
+        # ✅ If file is already PCM WAV, return it
+        if sample_width == 2 and channels in [1, 2]:
+            return audio_path
+        
+        # 🔄 Convert to PCM WAV if needed
+        audio = AudioSegment.from_wav(audio_path)
+        pcm_wav_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
+        audio.export(pcm_wav_path, format="wav", parameters=["-acodec", "pcm_s16le"])
+        return pcm_wav_path
+
+    except Exception as e:
+        st.error(f"❌ WAV processing error: {str(e)}")
+        return None
+
 # 🎙️ **Speech-to-Text Function**
 def transcribe_audio(audio_path):
     """ Converts speech to text from an audio file. """
@@ -38,13 +61,18 @@ def transcribe_audio(audio_path):
         st.error("❌ Error: Audio file is empty or not recorded correctly.")
         return None
 
+    # Ensure proper PCM WAV format
+    pcm_wav_path = ensure_pcm_wav(audio_path)
+    if not pcm_wav_path:
+        return None
+
     # Play back audio to debug
-    st.audio(audio_path, format="audio/wav")
-    st.info("🎧 Playing back uploaded audio. If silent, file processing failed.")
+    st.audio(pcm_wav_path, format="audio/wav")
+    st.info("🎧 Playing back processed audio.")
 
     recognizer = sr.Recognizer()
     try:
-        with sr.AudioFile(audio_path) as source:
+        with sr.AudioFile(pcm_wav_path) as source:
             audio = recognizer.record(source)
         text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
         return text
@@ -71,37 +99,19 @@ st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ S
 # 🎤 **File Upload**
 st.info("📢 Upload a voice file to start your story.")
 
-uploaded_audio = st.file_uploader("📤 Upload a WAV/MP3 file", type=["wav", "mp3"])
+uploaded_audio = st.file_uploader("📤 Upload a WAV file (PCM only)", type=["wav"])
 
 def process_uploaded_audio(audio_file):
-    """ Processes uploaded WAV or MP3 files correctly without conversion. """
+    """ Processes uploaded WAV files and ensures correct PCM format. """
     try:
-        file_extension = audio_file.name.split(".")[-1].lower()
-        temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_extension}").name
+        temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
 
         # Save uploaded file
         with open(temp_audio_path, "wb") as f:
             f.write(audio_file.read())
 
-        # ✅ Directly process WAV
-        if file_extension == "wav":
-            return temp_audio_path
-
-        # ✅ Process MP3 without conversion
-        elif file_extension == "mp3":
-            try:
-                audio = MP3(temp_audio_path)  # Read MP3 duration (ensures file is valid)
-                if audio.info.length < 1:
-                    st.error("❌ Error: MP3 file is too short or empty.")
-                    return None
-                return temp_audio_path
-            except Exception as e:
-                st.error(f"❌ Error processing MP3: {str(e)}")
-                return None
-
-        else:
-            st.error("❌ Unsupported file format.")
-            return None
+        # ✅ Ensure PCM WAV format
+        return ensure_pcm_wav(temp_audio_path)
 
     except Exception as e:
         st.error(f"❌ Audio processing error: {str(e)}")
