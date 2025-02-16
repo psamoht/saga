@@ -6,8 +6,8 @@ import os
 import tempfile
 import wave
 import io
-import torchaudio  # ✅ Fix for MP3/WAV conversion without ffmpeg
 from gtts import gTTS
+from mutagen.mp3 import MP3  # ✅ Read MP3 duration without conversion
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -73,36 +73,44 @@ st.info("📢 Upload a voice file to start your story.")
 
 uploaded_audio = st.file_uploader("📤 Upload a WAV/MP3 file", type=["wav", "mp3"])
 
-def convert_mp3_to_wav(mp3_bytes):
-    """ Converts MP3 bytes to WAV using torchaudio. """
+def process_uploaded_audio(audio_file):
+    """ Processes uploaded WAV or MP3 files correctly without conversion. """
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_mp3:
-            temp_mp3.write(mp3_bytes)
-            temp_mp3.flush()
-            
-            # ✅ Convert MP3 to WAV using torchaudio
-            waveform, sample_rate = torchaudio.load(temp_mp3.name)
-            
-            # Save as WAV
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
-                torchaudio.save(temp_wav.name, waveform, sample_rate, format="wav")
-                return temp_wav.name
+        file_extension = audio_file.name.split(".")[-1].lower()
+        temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_extension}").name
+
+        # Save uploaded file
+        with open(temp_audio_path, "wb") as f:
+            f.write(audio_file.read())
+
+        # ✅ Directly process WAV
+        if file_extension == "wav":
+            return temp_audio_path
+
+        # ✅ Process MP3 without conversion
+        elif file_extension == "mp3":
+            try:
+                audio = MP3(temp_audio_path)  # Read MP3 duration (ensures file is valid)
+                if audio.info.length < 1:
+                    st.error("❌ Error: MP3 file is too short or empty.")
+                    return None
+                return temp_audio_path
+            except Exception as e:
+                st.error(f"❌ Error processing MP3: {str(e)}")
+                return None
+
+        else:
+            st.error("❌ Unsupported file format.")
+            return None
+
     except Exception as e:
-        st.error(f"❌ MP3 conversion error: {str(e)}")
+        st.error(f"❌ Audio processing error: {str(e)}")
         return None
 
 audio_path = None
 
 if uploaded_audio:
-    file_extension = uploaded_audio.name.split(".")[-1].lower()
-
-    # Convert MP3 to WAV manually
-    if file_extension == "mp3":
-        audio_path = convert_mp3_to_wav(uploaded_audio.read())
-    else:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-            temp_audio.write(uploaded_audio.read())
-            audio_path = temp_audio.name
+    audio_path = process_uploaded_audio(uploaded_audio)
 
     # 🔎 **Process Audio if Available**
     if audio_path:
