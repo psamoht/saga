@@ -30,7 +30,7 @@ if "user_decision" not in st.session_state:
 if "audio_file" not in st.session_state:
     st.session_state.audio_file = None
 
-# 🎙️ Speech-to-Text Function (Fixed)
+# 🎙️ Speech-to-Text Function (With Debugging)
 def transcribe_audio(audio_dict):
     if not audio_dict or "bytes" not in audio_dict:
         st.warning("⚠️ No valid audio detected. Please try speaking again.")
@@ -46,6 +46,10 @@ def transcribe_audio(audio_dict):
             wav_file.setsampwidth(2)  # 16-bit audio
             wav_file.setframerate(44100)  # Sample rate
             wav_file.writeframes(audio_bytes)
+
+    # 🎧 Debug: Allow user to play back their own recording
+    st.audio(temp_audio_path, format="audio/wav")
+    st.info("🎧 This is your recorded audio. If you hear nothing, your microphone is not working correctly.")
 
     # Process audio with SpeechRecognition
     recognizer = sr.Recognizer()
@@ -73,11 +77,23 @@ def text_to_speech(text):
 # 📜 UI Title
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
 
-# 🎤 Welcome Message & Voice Input for Topic
-if not st.session_state.story:
-    st.info("📢 Welcome! Please speak a topic for your story.")
-    audio_dict = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
-    
+# 🎤 Welcome Message & Voice Input for Topic (With Mobile Support)
+st.info("📢 Speak a topic for your story.")
+
+if st.session_state.story == "":
+    audio_dict = None
+
+    # 🔹 Check if user is on mobile
+    if st.session_state.get("is_mobile", None) is None:
+        st.session_state.is_mobile = st.file_uploader("📱 Upload an audio file if the microphone does not work.", type=["wav", "mp3"])
+
+    if st.session_state.is_mobile:
+        uploaded_audio = st.file_uploader("📤 Upload an audio file (WAV/MP3)", type=["wav", "mp3"])
+        if uploaded_audio:
+            audio_dict = {"bytes": uploaded_audio.read()}
+    else:
+        audio_dict = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
+
     if audio_dict:
         topic = transcribe_audio(audio_dict)
         if topic:
@@ -117,42 +133,3 @@ if st.session_state.story and st.session_state.story.startswith("Generating a st
 if st.session_state.story and st.session_state.audio_file:
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
     st.audio(st.session_state.audio_file, format="audio/mp3")
-
-    # 🎤 Ask for Next Decision
-    st.info("🎤 What should happen next? Speak your decision.")
-    audio_dict = mic_recorder(start_prompt="🎤 Speak Decision" if lang == "en" else "🎤 Entscheidung sprechen")
-    
-    if audio_dict:
-        user_decision = transcribe_audio(audio_dict)
-        if user_decision:
-            st.success(f"✅ You said: {user_decision}")
-            st.session_state.user_decision = user_decision
-            st.rerun()
-
-# 🔄 Generate Next Story Section
-if st.session_state.user_decision:
-    try:
-        next_story_response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": f"Continue the children's story in {lang}, maintaining a fun, engaging tone. "
-                                              f"Each section should be around 200 words long and lead to another open-ended decision point. "
-                                              f"The decision should be implied by the story's events, rather than explicitly listing choices."},
-                {"role": "user", "content": f"The story so far:\n\n{'\n\n'.join(st.session_state.history)}\n\n"
-                                            f"The reader suggested: {st.session_state.user_decision}\n\n"
-                                            f"Continue the story based on this input, keeping the storytelling immersive and natural."}
-            ]
-        )
-
-        # Save new story section
-        new_story = next_story_response.choices[0].message.content
-        st.session_state.history.append(new_story)
-        st.session_state.story = new_story
-
-        # Convert to speech
-        st.session_state.audio_file = text_to_speech(new_story)
-        st.session_state.user_decision = None
-        st.rerun()
-
-    except Exception as e:
-        st.error(f"❌ Error: {str(e)}")
