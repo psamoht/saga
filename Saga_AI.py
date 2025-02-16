@@ -4,7 +4,7 @@ import locale
 import speech_recognition as sr
 import os
 import tempfile
-import io
+import wave
 from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 
@@ -38,10 +38,14 @@ def transcribe_audio(audio_dict):
 
     audio_bytes = audio_dict["bytes"]  # Extract raw audio data
 
-    # Save audio to a temporary WAV file
+    # Save audio as a proper WAV file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-        temp_audio.write(audio_bytes)
         temp_audio_path = temp_audio.name
+        with wave.open(temp_audio_path, "wb") as wav_file:
+            wav_file.setnchannels(1)  # Mono audio
+            wav_file.setsampwidth(2)  # 16-bit audio
+            wav_file.setframerate(44100)  # Sample rate
+            wav_file.writeframes(audio_bytes)
 
     # Process audio with SpeechRecognition
     recognizer = sr.Recognizer()
