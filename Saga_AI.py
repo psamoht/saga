@@ -4,6 +4,8 @@ import locale
 import speech_recognition as sr
 import os
 import tempfile
+import io
+import wave
 from gtts import gTTS
 from pydub import AudioSegment
 from pydub.playback import play
@@ -31,17 +33,25 @@ if "user_decision" not in st.session_state:
 if "audio_file" not in st.session_state:
     st.session_state.audio_file = None
 
-# 🎙️ Speech-to-Text Function
-def transcribe_audio(audio_bytes):
+# 🎙️ Speech-to-Text Function (Fixed)
+def transcribe_audio(audio_numpy):
     recognizer = sr.Recognizer()
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-        temp_audio.write(audio_bytes)
-        temp_audio.close()
-        with sr.AudioFile(temp_audio.name) as source:
+
+    # Convert NumPy array to WAV format
+    with io.BytesIO() as temp_audio:
+        with wave.open(temp_audio, "wb") as wav_file:
+            wav_file.setnchannels(1)  # Mono audio
+            wav_file.setsampwidth(2)  # 16-bit audio
+            wav_file.setframerate(44100)  # Sample rate
+            wav_file.writeframes(audio_numpy.tobytes())  # Convert NumPy to bytes
+        
+        temp_audio.seek(0)  # Reset pointer for reading
+
+        # Process with SpeechRecognition
+        with sr.AudioFile(temp_audio) as source:
             audio = recognizer.record(source)
         try:
             text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
-            os.remove(temp_audio.name)
             return text
         except sr.UnknownValueError:
             return None
@@ -63,7 +73,7 @@ if not st.session_state.story:
     st.info("📢 Welcome! Please speak a topic for your story.")
     audio_bytes = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
     
-    if audio_bytes:
+    if audio_bytes is not None:
         topic = transcribe_audio(audio_bytes)
         if topic:
             st.success(f"✅ You said: {topic}")
@@ -107,7 +117,7 @@ if st.session_state.story and st.session_state.audio_file:
     st.info("🎤 What should happen next? Speak your decision.")
     audio_bytes = mic_recorder(start_prompt="🎤 Speak Decision" if lang == "en" else "🎤 Entscheidung sprechen")
     
-    if audio_bytes:
+    if audio_bytes is not None:
         user_decision = transcribe_audio(audio_bytes)
         if user_decision:
             st.success(f"✅ You said: {user_decision}")
