@@ -6,8 +6,9 @@ import os
 import tempfile
 import wave
 from gtts import gTTS
-from pydub import AudioSegment  # 🔥 Fixes MP3-to-WAV conversion issue
-from streamlit_mic_recorder import mic_recorder  # ✅ Keep Streamlit compatible mic recording
+import io
+from pydub import AudioSegment
+from streamlit_mic_recorder import mic_recorder
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -82,11 +83,14 @@ if input_method == "🎙 Microphone":
     if audio_dict and "bytes" in audio_dict:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
             temp_audio_path = temp_audio.name
+            
+            # Convert bytes to proper WAV format
             with wave.open(temp_audio_path, "wb") as wav_file:
                 wav_file.setnchannels(1)  # Mono
                 wav_file.setsampwidth(2)  # 16-bit audio
                 wav_file.setframerate(44100)  # Standard sample rate
                 wav_file.writeframes(audio_dict["bytes"])
+
         audio_path = temp_audio_path
 
 elif input_method == "📤 Upload Audio File":
@@ -96,10 +100,13 @@ elif input_method == "📤 Upload Audio File":
             temp_audio_path = temp_audio.name
             file_extension = uploaded_audio.name.split(".")[-1].lower()
 
-            # Convert MP3 to WAV if necessary
+            # **Fix MP3 issue by decoding without `ffmpeg`**
             if file_extension == "mp3":
-                audio = AudioSegment.from_file(uploaded_audio, format="mp3")
-                audio.export(temp_audio_path, format="wav")
+                try:
+                    audio = AudioSegment.from_file(io.BytesIO(uploaded_audio.read()), format="mp3")
+                    audio.export(temp_audio_path, format="wav")
+                except Exception as e:
+                    st.error(f"❌ Error processing MP3: {str(e)}")
             else:
                 temp_audio.write(uploaded_audio.read())
 
