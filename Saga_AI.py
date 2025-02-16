@@ -35,8 +35,12 @@ if "audio_file" not in st.session_state:
 
 # 🎙️ Speech-to-Text Function (Fixed)
 def transcribe_audio(audio_numpy):
-    recognizer = sr.Recognizer()
+    if audio_numpy is None:
+        st.warning("⚠️ No audio detected. Please try speaking again.")
+        return None
 
+    recognizer = sr.Recognizer()
+    
     # Convert NumPy array to WAV format
     with io.BytesIO() as temp_audio:
         with wave.open(temp_audio, "wb") as wav_file:
@@ -54,8 +58,10 @@ def transcribe_audio(audio_numpy):
             text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
             return text
         except sr.UnknownValueError:
+            st.warning("⚠️ Could not understand the audio. Try speaking more clearly.")
             return None
         except sr.RequestError:
+            st.error("❌ Error: Could not connect to speech recognition service.")
             return None
 
 # 🔊 Text-to-Speech Function
