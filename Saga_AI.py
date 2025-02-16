@@ -32,13 +32,18 @@ if "audio_file" not in st.session_state:
 
 # 🎙️ **Speech-to-Text Function (Fixed)**
 def transcribe_audio(audio_path):
+    """ Converts speech to text from an audio file. """
+    if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
+        st.error("❌ Error: Audio file is empty or not recorded correctly.")
+        return None
+
     st.audio(audio_path, format="audio/wav")
-    st.info("🎧 This is your recorded/uploaded audio. If you hear only white noise, the file might be corrupted.")
+    st.info("🎧 Playing back recorded/uploaded audio. If silent, the recording failed.")
 
     recognizer = sr.Recognizer()
-    with sr.AudioFile(audio_path) as source:
-        audio = recognizer.record(source)
     try:
+        with sr.AudioFile(audio_path) as source:
+            audio = recognizer.record(source)
         text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
         return text
     except sr.UnknownValueError:
@@ -46,6 +51,9 @@ def transcribe_audio(audio_path):
         return None
     except sr.RequestError:
         st.error("❌ Error: Could not connect to speech recognition service.")
+        return None
+    except Exception as e:
+        st.error(f"❌ Audio processing error: {str(e)}")
         return None
 
 # 🔊 **Text-to-Speech Function**
@@ -68,10 +76,15 @@ audio_path = None
 
 if input_method == "🎙 Microphone":
     audio_dict = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
+    
     if audio_dict and "bytes" in audio_dict:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-            temp_audio.write(audio_dict["bytes"])
             temp_audio_path = temp_audio.name
+            with wave.open(temp_audio_path, "wb") as wav_file:
+                wav_file.setnchannels(1)  # Mono
+                wav_file.setsampwidth(2)  # 16-bit audio
+                wav_file.setframerate(44100)  # Standard sample rate
+                wav_file.writeframes(audio_dict["bytes"])
         audio_path = temp_audio_path
 
 elif input_method == "📤 Upload Audio File":
