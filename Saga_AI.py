@@ -5,17 +5,15 @@ import speech_recognition as sr
 import os
 import tempfile
 import io
-import wave
 from gtts import gTTS
 from pydub import AudioSegment
-from pydub.playback import play
 from streamlit_mic_recorder import mic_recorder
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # 🌍 Detect system language for default selection
-user_locale = locale.getlocale()[0]  # Updated method to avoid deprecation warning
+user_locale = locale.getlocale()[0]  # Avoids deprecated `getdefaultlocale()`
 default_lang = "de" if user_locale and "de" in user_locale else "en"
 
 # 🌐 Language Selection Dropdown
@@ -39,23 +37,26 @@ def transcribe_audio(audio_dict):
         st.warning("⚠️ No valid audio detected. Please try speaking again.")
         return None
 
-    audio_bytes = audio_dict["bytes"]  # Extract actual audio data
+    audio_bytes = audio_dict["bytes"]  # Extract audio data
+
+    # Convert MP3 (or unknown format) to WAV
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+        temp_audio_path = temp_audio.name
+        audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")  # Convert MP3 to WAV
+        audio.export(temp_audio_path, format="wav")
 
     recognizer = sr.Recognizer()
-    
-    # Convert bytes to WAV format
-    with io.BytesIO(audio_bytes) as temp_audio:
-        with sr.AudioFile(temp_audio) as source:
-            audio = recognizer.record(source)
-        try:
-            text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
-            return text
-        except sr.UnknownValueError:
-            st.warning("⚠️ Could not understand the audio. Try speaking more clearly.")
-            return None
-        except sr.RequestError:
-            st.error("❌ Error: Could not connect to speech recognition service.")
-            return None
+    with sr.AudioFile(temp_audio_path) as source:
+        audio = recognizer.record(source)
+    try:
+        text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
+        return text
+    except sr.UnknownValueError:
+        st.warning("⚠️ Could not understand the audio. Try speaking more clearly.")
+        return None
+    except sr.RequestError:
+        st.error("❌ Error: Could not connect to speech recognition service.")
+        return None
 
 # 🔊 Text-to-Speech Function
 def text_to_speech(text):
