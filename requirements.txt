@@ -3,5 +3,4 @@ streamlit
 speechrecognition
 gtts
 pydub
-sounddevice
-numpy
+streamlit_mic_recorder
