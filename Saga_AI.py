@@ -7,7 +7,6 @@ import tempfile
 import wave
 import io
 from gtts import gTTS
-from pydub import AudioSegment  # ✅ Fix silent WAV playback
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -31,22 +30,26 @@ if "user_decision" not in st.session_state:
 if "audio_file" not in st.session_state:
     st.session_state.audio_file = None
 
-# 🎙️ **Ensure WAV File is Properly Read**
-def fix_wav_audio(audio_path):
-    """ Fixes WAV files that play back as silent or are unreadable. """
+# 🎙️ **Check and Fix WAV File Natively**
+def validate_wav(audio_path):
+    """ Ensures the uploaded WAV file is valid and playable. """
     try:
-        audio = AudioSegment.from_wav(audio_path)
-        
-        # 🔊 Debugging: Check if the audio has actual sound data
-        if audio.dBFS == float("-inf"):
-            st.error("❌ Error: Uploaded WAV file is completely silent!")
-            return None
-        
-        # ✅ Convert to proper WAV format
-        fixed_wav_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
-        audio.export(fixed_wav_path, format="wav", parameters=["-acodec", "pcm_s16le"])
-        
-        return fixed_wav_path
+        with wave.open(audio_path, "rb") as wav_file:
+            params = wav_file.getparams()
+            num_channels, sampwidth, framerate, nframes = params[:4]
+            
+            # ✅ Validate PCM WAV format
+            if sampwidth != 2:
+                st.error("❌ Error: WAV file must be 16-bit PCM.")
+                return None
+            if num_channels not in [1, 2]:
+                st.error("❌ Error: WAV file must be mono or stereo.")
+                return None
+            if framerate < 8000 or framerate > 48000:
+                st.error("❌ Error: WAV file sample rate must be between 8kHz and 48kHz.")
+                return None
+            
+            return audio_path
 
     except Exception as e:
         st.error(f"❌ WAV processing error: {str(e)}")
@@ -54,23 +57,23 @@ def fix_wav_audio(audio_path):
 
 # 🎙️ **Speech-to-Text Function**
 def transcribe_audio(audio_path):
-    """ Converts speech to text from an audio file. """
+    """ Converts speech to text from a WAV file. """
     if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
         st.error("❌ Error: Audio file is empty or not recorded correctly.")
         return None
 
-    # Ensure WAV file is properly formatted
-    fixed_wav_path = fix_wav_audio(audio_path)
-    if not fixed_wav_path:
+    # Ensure valid WAV file
+    valid_wav_path = validate_wav(audio_path)
+    if not valid_wav_path:
         return None
 
     # 🔊 Play back audio to debug
-    st.audio(fixed_wav_path, format="audio/wav")
+    st.audio(valid_wav_path, format="audio/wav")
     st.info("🎧 Playing back processed audio.")
 
     recognizer = sr.Recognizer()
     try:
-        with sr.AudioFile(fixed_wav_path) as source:
+        with sr.AudioFile(valid_wav_path) as source:
             audio = recognizer.record(source)
         text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
         return text
@@ -100,7 +103,7 @@ st.info("📢 Upload a voice file to start your story.")
 uploaded_audio = st.file_uploader("📤 Upload a WAV file", type=["wav"])
 
 def process_uploaded_audio(audio_file):
-    """ Processes uploaded WAV files and ensures they are not silent. """
+    """ Processes uploaded WAV files and ensures they are playable. """
     try:
         temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
 
@@ -108,8 +111,8 @@ def process_uploaded_audio(audio_file):
         with open(temp_audio_path, "wb") as f:
             f.write(audio_file.read())
 
-        # ✅ Ensure proper WAV format and not silent
-        return fix_wav_audio(temp_audio_path)
+        # ✅ Ensure valid WAV format
+        return validate_wav(temp_audio_path)
 
     except Exception as e:
         st.error(f"❌ Audio processing error: {str(e)}")
