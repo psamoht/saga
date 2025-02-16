@@ -6,7 +6,6 @@ import os
 import tempfile
 import wave
 import io
-from gtts import gTTS
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -27,8 +26,6 @@ if "history" not in st.session_state:
     st.session_state.history = []
 if "user_decision" not in st.session_state:
     st.session_state.user_decision = None
-if "audio_file" not in st.session_state:
-    st.session_state.audio_file = None
 if "topic" not in st.session_state:
     st.session_state.topic = None
 if "transcribed_text" not in st.session_state:
@@ -94,13 +91,6 @@ def transcribe_audio(audio_path):
         st.error(f"❌ Audio processing error: {str(e)}")
         return None
 
-# 🔊 **Text-to-Speech Function**
-def text_to_speech(text):
-    tts = gTTS(text, lang="de" if lang == "de" else "en")
-    temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    tts.save(temp_audio.name)
-    return temp_audio.name
-
 # 📜 **UI Title**
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
 
@@ -160,10 +150,8 @@ if st.session_state.topic and st.session_state.story.startswith("Generating a st
         st.session_state.story = response.choices[0].message.content
         st.session_state.history.append(st.session_state.story)
 
-        # Convert story to speech
-        st.session_state.audio_file = text_to_speech(st.session_state.story)
-
-        # Reset the transcribed text to prevent flickering
+        # 🆕 **Instead of TTS API, we use Streamlit's built-in method**
+        st.session_state.audio_file = None  # **Remove TTS dependency**
         st.session_state.transcribed_text = None
         st.rerun()
 
@@ -171,6 +159,7 @@ if st.session_state.topic and st.session_state.story.startswith("Generating a st
         st.error(f"❌ Error: {str(e)}")
 
 # 📖 **Play and Display Story**
-if st.session_state.story and st.session_state.audio_file:
+if st.session_state.story:
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
-    st.audio(st.session_state.audio_file, format="audio/mp3")
+    st.info("🔊 Click below to read the story out loud:")
+    st.button("📢 Read Aloud", on_click=lambda: st.speak(st.session_state.story))
