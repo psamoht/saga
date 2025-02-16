@@ -8,7 +8,6 @@ import wave
 from gtts import gTTS
 import io
 from pydub import AudioSegment
-from streamlit_mic_recorder import mic_recorder
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -69,56 +68,33 @@ def text_to_speech(text):
 # 📜 **UI Title**
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
 
-# 🎤 **Microphone & File Upload (Fixed)**
-st.info("📢 Speak a topic for your story or upload a voice file.")
+# 🎤 **File Upload Only (No Mic Recording)**
+st.info("📢 Upload a voice file to start your story.")
 
-# **Allow switching between microphone and file upload**
-input_method = st.radio("Choose input method:", ["🎙 Microphone", "📤 Upload Audio File"])
+uploaded_audio = st.file_uploader("📤 Upload a WAV/MP3 file", type=["wav", "mp3"])
 
-audio_path = None
+if uploaded_audio:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+        temp_audio_path = temp_audio.name
+        file_extension = uploaded_audio.name.split(".")[-1].lower()
 
-if input_method == "🎙 Microphone":
-    audio_dict = mic_recorder(start_prompt="🎤 Speak Topic" if lang == "en" else "🎤 Thema sprechen")
-    
-    if audio_dict and "bytes" in audio_dict:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-            temp_audio_path = temp_audio.name
-            
-            # Convert bytes to proper WAV format
-            with wave.open(temp_audio_path, "wb") as wav_file:
-                wav_file.setnchannels(1)  # Mono
-                wav_file.setsampwidth(2)  # 16-bit audio
-                wav_file.setframerate(44100)  # Standard sample rate
-                wav_file.writeframes(audio_dict["bytes"])
+        # **Fix MP3 issue by decoding manually (No ffmpeg)**
+        try:
+            audio = AudioSegment.from_file(io.BytesIO(uploaded_audio.read()), format=file_extension)
+            audio = audio.set_channels(1).set_frame_rate(44100).set_sample_width(2)  # Convert to correct format
+            audio.export(temp_audio_path, format="wav")
+            st.success("✅ Audio successfully processed and converted to WAV.")
+        except Exception as e:
+            st.error(f"❌ Error processing audio file: {str(e)}")
+            temp_audio_path = None
 
-        audio_path = temp_audio_path
-
-elif input_method == "📤 Upload Audio File":
-    uploaded_audio = st.file_uploader("📤 Upload a WAV/MP3 file", type=["wav", "mp3"])
-    if uploaded_audio:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-            temp_audio_path = temp_audio.name
-            file_extension = uploaded_audio.name.split(".")[-1].lower()
-
-            # **Fix MP3 issue by decoding without `ffmpeg`**
-            if file_extension == "mp3":
-                try:
-                    audio = AudioSegment.from_file(io.BytesIO(uploaded_audio.read()), format="mp3")
-                    audio.export(temp_audio_path, format="wav")
-                except Exception as e:
-                    st.error(f"❌ Error processing MP3: {str(e)}")
-            else:
-                temp_audio.write(uploaded_audio.read())
-
-        audio_path = temp_audio_path
-
-# 🔎 **Process Audio if Available**
-if audio_path:
-    topic = transcribe_audio(audio_path)
-    if topic:
-        st.success(f"✅ You said: {topic}")
-        st.session_state.story = f"Generating a story about {topic}..."
-        st.rerun()
+    # 🔎 **Process Audio if Available**
+    if temp_audio_path:
+        topic = transcribe_audio(temp_audio_path)
+        if topic:
+            st.success(f"✅ You said: {topic}")
+            st.session_state.story = f"Generating a story about {topic}..."
+            st.rerun()
 
 # 🌟 **Generate Initial Story**
 if st.session_state.story and st.session_state.story.startswith("Generating a story"):
