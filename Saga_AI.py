@@ -175,7 +175,7 @@ if st.session_state.topic and not st.session_state.story_generated:
 
         st.session_state.transcribed_text = None
         st.session_state.story_generated = True  # 🚀 Prevents infinite loop
-        st.rerun()
+        #st.rerun()
 
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
