@@ -6,6 +6,7 @@ import os
 import tempfile
 import wave
 import io
+from gtts import gTTS
 
 # OpenAI API Key
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -30,6 +31,10 @@ if "topic" not in st.session_state:
     st.session_state.topic = None
 if "transcribed_text" not in st.session_state:
     st.session_state.transcribed_text = None
+if "audio_file" not in st.session_state:
+    st.session_state.audio_file = None
+if "story_generated" not in st.session_state:
+    st.session_state.story_generated = False  # 🚀 Prevents infinite loop
 
 # 🎙️ **Ensure WAV File is Valid**
 def validate_wav(audio_path):
@@ -91,6 +96,18 @@ def transcribe_audio(audio_path):
         st.error(f"❌ Audio processing error: {str(e)}")
         return None
 
+# 🔊 **Text-to-Speech Function**
+def text_to_speech(text):
+    """ Generates and saves speech audio from text using gTTS. """
+    try:
+        tts = gTTS(text, lang="de" if lang == "de" else "en")
+        temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+        tts.save(temp_audio_path)
+        return temp_audio_path
+    except Exception as e:
+        st.error(f"❌ TTS Error: {str(e)}")
+        return None
+
 # 📜 **UI Title**
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
 
@@ -127,20 +144,21 @@ if uploaded_audio and not st.session_state.transcribed_text:
             st.success(f"✅ You said: {topic}")
             st.session_state.topic = topic
             st.session_state.story = f"Generating a story about {topic}..."
+            st.session_state.story_generated = False  # 🚀 Reset flag
             st.rerun()
 
 # 🌟 **Generate Initial Story**
-if st.session_state.topic and st.session_state.story.startswith("Generating a story"):
+if st.session_state.topic and not st.session_state.story_generated:
     topic = st.session_state.topic
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": f"Create a fun, engaging children's story for a 5-year-old in {lang}. "
-                                              f"Each section should be around 200 words long. "
-                                              f"The story should flow naturally and lead to a decision point where the main character needs to decide what to do next. "
-                                              f"This decision point should be obvious but not limited to two specific options. "
-                                              f"It should feel open-ended, allowing different choices from the reader."},
+                {"role": "system", "content": f"""Create a fun, engaging children's story for a 5-year-old in {lang}. 
+                Each section should be around 200 words long. 
+                The story should flow naturally and lead to a decision point where the main character needs to decide what to do next. 
+                This decision point should be obvious but not limited to two specific options.
+                It should feel open-ended, allowing different choices from the reader."""},
                 {"role": "user", "content": f"Write a children's story about {topic}. "
                                             f"Ensure that the story section is about 200 words long and ends at an open-ended decision point."}
             ]
@@ -150,16 +168,19 @@ if st.session_state.topic and st.session_state.story.startswith("Generating a st
         st.session_state.story = response.choices[0].message.content
         st.session_state.history.append(st.session_state.story)
 
-        # 🆕 **Instead of TTS API, we use Streamlit's built-in method**
-        st.session_state.audio_file = None  # **Remove TTS dependency**
+        # Generate speech audio
+        audio_path = text_to_speech(st.session_state.story)
+        if audio_path:
+            st.session_state.audio_file = audio_path
+
         st.session_state.transcribed_text = None
+        st.session_state.story_generated = True  # 🚀 Prevents infinite loop
         st.rerun()
 
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
 
 # 📖 **Play and Display Story**
-if st.session_state.story:
+if st.session_state.story and st.session_state.audio_file:
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
-    st.info("🔊 Click below to read the story out loud:")
-    st.button("📢 Read Aloud", on_click=lambda: st.speak(st.session_state.story))
+    st.audio(st.session_state.audio_file, format="audio/mp3")
