@@ -183,6 +183,9 @@ if st.session_state.topic and not st.session_state.story_generated:
         st.error(f"❌ Error: {str(e)}")
 
 # 🎙️ Generate and Play Back Audio if Story Exists
+if st.session_state.story and st.session_state.audio_file:
+    st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
+  
 if st.session_state.story:
     if "audio_file" not in st.session_state or not st.session_state.audio_file:
         st.session_state.audio_file = text_to_speech(st.session_state.story)  # 🔄 Generate speech file
