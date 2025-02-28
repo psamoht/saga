@@ -115,7 +115,15 @@ if uploaded_audio and not st.session_state.transcribed_text:
 if st.session_state.topic and not st.session_state.story_generated:
     response = openai.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "system", "content": f"Create a children's story in {lang}..."}]
+        messages=[
+                {"role": "system", "content": f"""Create a fun, engaging children's story for a 5-year-old in {lang}. 
+                Each section should be around 200 words long. 
+                The story should flow naturally and lead to a decision point where the main character needs to decide what to do next. 
+                This decision point should be obvious but not limited to two specific options.
+                It should feel open-ended, allowing different choices from the reader."""},
+                {"role": "user", "content": f"Write a children's story about {topic}. "
+                                            f"Ensure that the story section is about 200 words long and ends at an open-ended decision point."}
+            ]
     )
     st.session_state.story = response.choices[0].message.content
     st.session_state.story_generated = True  # ✅ Prevents infinite rerun
