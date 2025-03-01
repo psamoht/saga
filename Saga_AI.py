@@ -112,6 +112,7 @@ def text_to_speech(text):
         # 🚀 Debugging: Ensure file exists and is not empty
         if os.path.exists(temp_audio_path) and os.path.getsize(temp_audio_path) > 0:
             st.success(f"✅ Speech file successfully generated: {temp_audio_path}")
+            st.download_button(label="⬇️ Download Speech MP3", data=open(st.session_state.audio_file, "rb").read(), file_name="speech.mp3", mime="audio/mp3")
             return temp_audio_path
         else:
             st.error("❌ gTTS generated an invalid MP3 file.")
@@ -194,15 +195,12 @@ if st.session_state.topic and not st.session_state.story_generated:
         st.error(f"❌ Error: {str(e)}")
 
 # 🎙️ Generate and Play Back Audio if Story Exists
-if "audio_file" not in st.session_state:
-    st.session_state.audio_file = None  # Initialize session variable
-
 if st.session_state.story:
-    # 📝 Display the generated story first
+    # 📝 Display the generated story
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
     # 🎤 Ensure audio is generated if missing
-    if not st.session_state.audio_file:
+    if "audio_file" not in st.session_state or not st.session_state.audio_file:
         audio_path = text_to_speech(st.session_state.story)  # Generate speech file
         if audio_path and os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
             st.session_state.audio_file = audio_path  # Save path to session state
@@ -213,6 +211,7 @@ if st.session_state.story:
     # 🎧 Validate and Play the MP3 File
     if st.session_state.audio_file and os.path.exists(st.session_state.audio_file):
         try:
+            # Read file as binary to avoid file locking issues
             with open(st.session_state.audio_file, "rb") as f:
                 audio_bytes = f.read()
 
