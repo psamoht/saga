@@ -64,6 +64,48 @@ def validate_wav(audio_path):
         return None
 
 # 🔊 **Text-to-Speech Function**
+def transcribe_audio(audio_path):
+    """
+    Converts speech to text from a WAV file using Google's Speech Recognition API.
+
+    Parameters:
+        audio_path (str): Path to the WAV file.
+
+    Returns:
+        str: Transcribed text from the audio file, or None if transcription fails.
+    """
+
+    # ✅ Check if the file exists and is not empty
+    if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
+        st.error("❌ Error: Audio file is empty or not recorded correctly.")
+        return None
+
+    # 🎙️ Initialize the speech recognizer
+    recognizer = sr.Recognizer()
+
+    try:
+        # 🔄 Open the audio file and convert it to text
+        with sr.AudioFile(audio_path) as source:
+            audio = recognizer.record(source)  # Capture the entire audio content
+
+        # 🎯 Transcribe the audio
+        text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
+
+        # ✅ Store the transcribed text in session state
+        st.session_state.transcribed_text = text
+        return text  # Return the recognized speech as text
+
+    except sr.UnknownValueError:
+        st.warning("⚠️ Could not understand the audio. Try speaking more clearly.")
+        return None
+    except sr.RequestError:
+        st.error("❌ Error: Could not connect to speech recognition service.")
+        return None
+    except Exception as e:
+        st.error(f"❌ Audio processing error: {str(e)}")
+        return None
+
+# 🔊 **Text-to-Speech Function**
 def text_to_speech(text):
     """Generates and saves speech audio from text using gTTS."""
     try:
@@ -84,29 +126,6 @@ def text_to_speech(text):
             return temp_audio_path
         else:
             st.error("❌ TTS Error: Generated file is empty.")
-            return None
-
-    except Exception as e:
-        st.error(f"❌ TTS Error: {str(e)}")
-        return None
-
-# 🔊 **Text-to-Speech Function (Debugging Mode)**
-def text_to_speech(text):
-    """Generates and saves speech audio from text using gTTS with additional debugging."""
-    try:
-        st.info("🔄 Generating speech audio...")  # Debugging step
-        tts = gTTS(text, lang="de" if lang == "de" else "en")
-        
-        temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-        tts.save(temp_audio_path)
-
-        # 🚀 Debugging: Ensure file exists and is not empty
-        if os.path.exists(temp_audio_path) and os.path.getsize(temp_audio_path) > 0:
-            st.success(f"✅ Speech file successfully generated: {temp_audio_path}")
-            st.download_button(label="⬇️ Download Speech MP3", data=open(st.session_state.audio_file, "rb").read(), file_name="speech.mp3", mime="audio/mp3")
-            return temp_audio_path
-        else:
-            st.error("❌ gTTS generated an invalid MP3 file.")
             return None
 
     except Exception as e:
