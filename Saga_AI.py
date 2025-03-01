@@ -190,24 +190,31 @@ if st.session_state.story:
     # 📝 Display the generated story first
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
-    # 🎤 Check if audio is already generated, else generate it
+    # 🎤 Ensure audio is generated if missing
     if not st.session_state.audio_file:
         try:
             audio_path = text_to_speech(st.session_state.story)  # Generate speech file
-            if audio_path:
+            if audio_path and os.path.exists(audio_path):  # ✅ Ensure the file exists
                 st.session_state.audio_file = audio_path  # Save path to session state
             else:
                 st.error("❌ Audio generation failed. Please try again.")
+                st.session_state.audio_file = None
         except Exception as e:
             st.error(f"❌ Error generating speech: {str(e)}")
+            st.session_state.audio_file = None
 
     # 🎧 Play the generated speech audio
-    if st.session_state.audio_file:
+    if st.session_state.audio_file and os.path.exists(st.session_state.audio_file):
         try:
-            st.audio(st.session_state.audio_file, format="audio/mp3")
+            with open(st.session_state.audio_file, "rb") as f:
+                audio_bytes = f.read()
+
+            if audio_bytes:  # Ensure file is not empty
+                st.audio(audio_bytes, format="audio/mp3")
+            else:
+                st.error("❌ The generated audio file is empty.")
         except Exception as e:
             st.error(f"❌ Error playing audio: {str(e)}")
             st.session_state.audio_file = None  # Reset if there's an issue
     else:
         st.error("❌ No valid audio file found.")
-
