@@ -204,6 +204,13 @@ if st.session_state.story:
             if audio_bytes:
                 st.audio(audio_bytes, format="audio/mp3")  # 🎵 Play audio
                 st.success("✅ Audio playback successful!")
+
+                # ⬇️ **Download Button for Debugging**
+                st.download_button(label="⬇️ Download Speech MP3", 
+                                   data=audio_bytes, 
+                                   file_name="speech.mp3", 
+                                   mime="audio/mp3")
+
             else:
                 st.error("❌ The generated audio file is empty.")
 
