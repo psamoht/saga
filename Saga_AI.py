@@ -218,37 +218,36 @@ if st.session_state.story:
             st.error("❌ Failed to generate speech audio.")
 
     # 🎧 **Validate and Play the MP3 File**
-    if "audio_file" in st.session_state and st.session_state.audio_file:
-        audio_path = st.session_state.audio_file
+    audio_path = st.session_state.get("audio_file", None)
 
-        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
-            try:
-                # Read the MP3 file as binary to avoid file locking issues
-                with open(audio_path, "rb") as f:
-                    audio_bytes = f.read()
+    if audio_path and os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
+        try:
+            # Read the MP3 file as binary
+            with open(audio_path, "rb") as f:
+                audio_bytes = f.read()
 
-                # Ensure valid audio data
-                if audio_bytes:
-                    st.audio(audio_bytes, format="audio/mp3")  # 🎵 Play audio
-                    st.success("✅ Audio playback successful!")
+            if audio_bytes:
+                # 🎵 **Play the generated speech audio**
+                st.audio(audio_bytes, format="audio/mp3")
+                st.success("✅ Audio playback successful!")
 
-                    # ⬇️ **Download Button**
+                # ⬇️ **Download Button (Preventing Regeneration)**
+                download_placeholder = st.empty()  # Placeholder to isolate rerun effects
+                with download_placeholder:
                     st.download_button(
                         label="⬇️ Download Speech MP3",
                         data=audio_bytes,
                         file_name="speech.mp3",
-                        mime="audio/mpeg"
+                        mime="audio/mpeg",
+                        key="download_button"  # Unique key to prevent reruns
                     )
 
-                else:
-                    st.error("❌ The generated audio file is empty.")
+            else:
+                st.error("❌ The generated audio file is empty.")
 
-            except Exception as e:
-                st.error(f"❌ Error playing audio: {str(e)}")
-                st.session_state.audio_file = None  # Reset if there's an issue
-
-        else:
-            st.error("❌ No valid audio file found or it is corrupted.")
+        except Exception as e:
+            st.error(f"❌ Error playing audio: {str(e)}")
+            st.session_state.audio_file = None  # Reset if there's an issue
 
     else:
-        st.error("❌ No audio file available. Try regenerating the speech.")
+        st.error("❌ No valid audio file found or it is corrupted.")
