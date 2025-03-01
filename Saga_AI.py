@@ -63,40 +63,31 @@ def validate_wav(audio_path):
         st.error(f"❌ WAV processing error: {str(e)}")
         return None
 
-# 🎙️ **Speech-to-Text Function**
-def transcribe_audio(audio_path):
-    """Converts speech to text from a WAV file."""
-    if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
-        st.error("❌ Error: Audio file is empty or not recorded correctly.")
-        return None
-
-    # Ensure valid WAV file
-    valid_wav_path = validate_wav(audio_path)
-    if not valid_wav_path:
-        return None
-
-    # 🔊 Play back audio to verify correctness
-    st.audio(valid_wav_path, format="audio/wav")
-    st.info("🎧 Playing back processed audio.")
-
-    recognizer = sr.Recognizer()
+# 🔊 **Text-to-Speech Function**
+def text_to_speech(text):
+    """Generates and saves speech audio from text using gTTS."""
     try:
-        with sr.AudioFile(valid_wav_path) as source:
-            audio = recognizer.record(source)  # Capture entire audio
-        text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
+        if not text or len(text.strip()) == 0:
+            st.error("❌ Error: No text provided for speech generation.")
+            return None
 
-        # Store transcribed text in session state
-        st.session_state.transcribed_text = text
-        return text  # Return transcribed text
+        # ✅ Generate speech
+        tts = gTTS(text, lang="de" if lang == "de" else "en")
 
-    except sr.UnknownValueError:
-        st.warning("⚠️ Could not understand the audio. Try speaking more clearly.")
-        return None
-    except sr.RequestError:
-        st.error("❌ Error: Could not connect to speech recognition service.")
-        return None
+        # ✅ Create a temporary MP3 file
+        temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+        tts.save(temp_audio_path)
+
+        # ✅ Ensure file exists & is not empty
+        if os.path.exists(temp_audio_path) and os.path.getsize(temp_audio_path) > 0:
+            st.success(f"✅ Speech file successfully generated: {temp_audio_path}")
+            return temp_audio_path
+        else:
+            st.error("❌ TTS Error: Generated file is empty.")
+            return None
+
     except Exception as e:
-        st.error(f"❌ Audio processing error: {str(e)}")
+        st.error(f"❌ TTS Error: {str(e)}")
         return None
 
 # 🔊 **Text-to-Speech Function (Debugging Mode)**
@@ -194,19 +185,14 @@ if st.session_state.topic and not st.session_state.story_generated:
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
 
-# 🎙️ Generate and Play Back Audio if Story Exists
+# 🎙️ **Generate and Play Back Audio if Story Exists**
 if st.session_state.story:
     # 📝 Display the generated story
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
     # 🎤 Ensure audio is generated if missing
     if "audio_file" not in st.session_state or not st.session_state.audio_file:
-        audio_path = text_to_speech(st.session_state.story)  # Generate speech file
-        if audio_path and os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
-            st.session_state.audio_file = audio_path  # Save path to session state
-        else:
-            st.error("❌ Audio generation failed. Please try again.")
-            st.session_state.audio_file = None
+        st.session_state.audio_file = text_to_speech(st.session_state.story)  # Generate speech file
 
     # 🎧 Validate and Play the MP3 File
     if st.session_state.audio_file and os.path.exists(st.session_state.audio_file):
@@ -227,3 +213,5 @@ if st.session_state.story:
 
     else:
         st.error("❌ No valid audio file found.")
+
+  st.download_button(label="⬇️ Download Speech MP3", data=open(st.session_state.audio_file, "rb").read(), file_name="speech.mp3", mime="audio/mp3")
