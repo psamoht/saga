@@ -209,33 +209,46 @@ if st.session_state.story:
     # 📝 Display the generated story
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
-    # 🎤 Ensure audio is generated if missing
+    # 🎤 Ensure audio is generated **only once**
     if "audio_file" not in st.session_state or not st.session_state.audio_file:
-        st.session_state.audio_file = text_to_speech(st.session_state.story)  # Generate speech file
+        generated_audio = text_to_speech(st.session_state.story)  # Generate speech file
+        if generated_audio and os.path.exists(generated_audio):
+            st.session_state.audio_file = generated_audio  # Save it for reuse
+        else:
+            st.error("❌ Failed to generate speech audio.")
 
-    # 🎧 Validate and Play the MP3 File
-    if st.session_state.audio_file and os.path.exists(st.session_state.audio_file):
-        try:
-            # Read file as binary to avoid file locking issues
-            with open(st.session_state.audio_file, "rb") as f:
-                audio_bytes = f.read()
+    # 🎧 **Validate and Play the MP3 File**
+    if "audio_file" in st.session_state and st.session_state.audio_file:
+        audio_path = st.session_state.audio_file
 
-            if audio_bytes:
-                st.audio(audio_bytes, format="audio/mp3")  # 🎵 Play audio
-                st.success("✅ Audio playback successful!")
+        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
+            try:
+                # Read the MP3 file as binary to avoid file locking issues
+                with open(audio_path, "rb") as f:
+                    audio_bytes = f.read()
 
-                # ⬇️ **Download Button for Debugging**
-                st.download_button(label="⬇️ Download Speech MP3", 
-                                   data=audio_bytes, 
-                                   file_name="speech.mp3", 
-                                   mime="audio/mp3")
+                # Ensure valid audio data
+                if audio_bytes:
+                    st.audio(audio_bytes, format="audio/mp3")  # 🎵 Play audio
+                    st.success("✅ Audio playback successful!")
 
-            else:
-                st.error("❌ The generated audio file is empty.")
+                    # ⬇️ **Download Button**
+                    st.download_button(
+                        label="⬇️ Download Speech MP3",
+                        data=audio_bytes,
+                        file_name="speech.mp3",
+                        mime="audio/mpeg"
+                    )
 
-        except Exception as e:
-            st.error(f"❌ Error playing audio: {str(e)}")
-            st.session_state.audio_file = None  # Reset if there's an issue
+                else:
+                    st.error("❌ The generated audio file is empty.")
+
+            except Exception as e:
+                st.error(f"❌ Error playing audio: {str(e)}")
+                st.session_state.audio_file = None  # Reset if there's an issue
+
+        else:
+            st.error("❌ No valid audio file found or it is corrupted.")
 
     else:
-        st.error("❌ No valid audio file found.")
+        st.error("❌ No audio file available. Try regenerating the speech.")
