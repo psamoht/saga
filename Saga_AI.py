@@ -211,11 +211,13 @@ if st.session_state.story:
 
     # 🎤 Ensure audio is generated **only once**
     if "audio_file" not in st.session_state or not st.session_state.audio_file:
-        generated_audio = text_to_speech(st.session_state.story)  # Generate speech file
-        if generated_audio and os.path.exists(generated_audio):
-            st.session_state.audio_file = generated_audio  # Save it for reuse
-        else:
-            st.error("❌ Failed to generate speech audio.")
+        if "audio_generated" not in st.session_state or not st.session_state.audio_generated:
+            generated_audio = text_to_speech(st.session_state.story)  # Generate speech file
+            if generated_audio and os.path.exists(generated_audio):
+                st.session_state.audio_file = generated_audio  # Save it for reuse
+                st.session_state.audio_generated = True  # Mark that audio is generated
+            else:
+                st.error("❌ Failed to generate speech audio.")
 
     # 🎧 **Validate and Play the MP3 File**
     audio_path = st.session_state.get("audio_file", None)
@@ -231,16 +233,15 @@ if st.session_state.story:
                 st.audio(audio_bytes, format="audio/mp3")
                 st.success("✅ Audio playback successful!")
 
-                # ⬇️ **Download Button (Preventing Regeneration)**
-                download_placeholder = st.empty()  # Placeholder to isolate rerun effects
-                with download_placeholder:
-                    st.download_button(
-                        label="⬇️ Download Speech MP3",
-                        data=audio_bytes,
-                        file_name="speech.mp3",
-                        mime="audio/mpeg",
-                        key="download_button"  # Unique key to prevent reruns
-                    )
+                # ⬇️ **Download Button (Prevents Regeneration)**
+                st.download_button(
+                    label="⬇️ Download Speech MP3",
+                    data=audio_bytes,
+                    file_name="speech.mp3",
+                    mime="audio/mpeg",
+                    key="download_button",  # Unique key to prevent reruns
+                    disabled=False  # Ensures the button does not modify session state
+                )
 
             else:
                 st.error("❌ The generated audio file is empty.")
