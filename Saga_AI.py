@@ -99,17 +99,28 @@ def transcribe_audio(audio_path):
         st.error(f"❌ Audio processing error: {str(e)}")
         return None
 
-# 🔊 **Text-to-Speech Function**
+# 🔊 **Text-to-Speech Function (Debugging Mode)**
 def text_to_speech(text):
-    """Generates and saves speech audio from text using gTTS."""
+    """Generates and saves speech audio from text using gTTS with additional debugging."""
     try:
+        st.info("🔄 Generating speech audio...")  # Debugging step
         tts = gTTS(text, lang="de" if lang == "de" else "en")
+        
         temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
         tts.save(temp_audio_path)
-        return temp_audio_path
+
+        # 🚀 Debugging: Ensure file exists and is not empty
+        if os.path.exists(temp_audio_path) and os.path.getsize(temp_audio_path) > 0:
+            st.success(f"✅ Speech file successfully generated: {temp_audio_path}")
+            return temp_audio_path
+        else:
+            st.error("❌ gTTS generated an invalid MP3 file.")
+            return None
+
     except Exception as e:
         st.error(f"❌ TTS Error: {str(e)}")
         return None
+
 
 # 📜 **UI Title**
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
@@ -192,29 +203,28 @@ if st.session_state.story:
 
     # 🎤 Ensure audio is generated if missing
     if not st.session_state.audio_file:
-        try:
-            audio_path = text_to_speech(st.session_state.story)  # Generate speech file
-            if audio_path and os.path.exists(audio_path):  # ✅ Ensure the file exists
-                st.session_state.audio_file = audio_path  # Save path to session state
-            else:
-                st.error("❌ Audio generation failed. Please try again.")
-                st.session_state.audio_file = None
-        except Exception as e:
-            st.error(f"❌ Error generating speech: {str(e)}")
+        audio_path = text_to_speech(st.session_state.story)  # Generate speech file
+        if audio_path and os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
+            st.session_state.audio_file = audio_path  # Save path to session state
+        else:
+            st.error("❌ Audio generation failed. Please try again.")
             st.session_state.audio_file = None
 
-    # 🎧 Play the generated speech audio
+    # 🎧 Validate and Play the MP3 File
     if st.session_state.audio_file and os.path.exists(st.session_state.audio_file):
         try:
             with open(st.session_state.audio_file, "rb") as f:
                 audio_bytes = f.read()
 
-            if audio_bytes:  # Ensure file is not empty
-                st.audio(audio_bytes, format="audio/mp3")
+            if audio_bytes:
+                st.audio(audio_bytes, format="audio/mp3")  # 🎵 Play audio
+                st.success("✅ Audio playback successful!")
             else:
                 st.error("❌ The generated audio file is empty.")
+
         except Exception as e:
             st.error(f"❌ Error playing audio: {str(e)}")
             st.session_state.audio_file = None  # Reset if there's an issue
+
     else:
         st.error("❌ No valid audio file found.")
