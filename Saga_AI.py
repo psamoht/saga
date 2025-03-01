@@ -213,5 +213,3 @@ if st.session_state.story:
 
     else:
         st.error("❌ No valid audio file found.")
-
-  st.download_button(label="⬇️ Download Speech MP3", data=open(st.session_state.audio_file, "rb").read(), file_name="speech.mp3", mime="audio/mp3")
