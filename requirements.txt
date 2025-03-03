@@ -5,3 +5,4 @@ gtts
 pydub
 streamlit_mic_recorder
 mutagen
+streamlit-audiorec
