@@ -1,4 +1,3 @@
-# Import necessary libraries
 import streamlit as st  # Streamlit for UI
 import openai  # OpenAI API for generating stories
 import locale  # Locale for detecting system language
@@ -8,6 +7,10 @@ import tempfile  # Temporary file handling
 import wave  # WAV audio processing
 import io  # Input/output operations
 from gtts import gTTS  # Google Text-to-Speech for audio playback
+
+# Make sure you have st_audiorec installed and imported:
+# pip install streamlit-audiorec
+from st_audiorec import st_audiorec  # Custom Streamlit component
 
 # OpenAI API Key (must be set in Streamlit secrets)
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -38,15 +41,14 @@ if "audio_file" not in st.session_state:
 if "story_generated" not in st.session_state:
     st.session_state.story_generated = False  # 🚀 Prevents infinite loops by tracking if story has been generated
 
-# 🎙️ **Function to Validate WAV Files**
+# 🎙️ **Validate WAV Files**
 def validate_wav(audio_path):
     """Ensures the uploaded WAV file is valid and playable."""
     try:
         with wave.open(audio_path, "rb") as wav_file:
             params = wav_file.getparams()
             num_channels, sampwidth, framerate, nframes = params[:4]
-            
-            # ✅ Validate PCM WAV format
+
             if sampwidth != 2:
                 st.error("❌ Error: WAV file must be 16-bit PCM.")
                 return None
@@ -56,44 +58,31 @@ def validate_wav(audio_path):
             if framerate < 8000 or framerate > 48000:
                 st.error("❌ Error: WAV file sample rate must be between 8kHz and 48kHz.")
                 return None
-            
-            return audio_path  # Return valid file path if checks pass
+
+            return audio_path  # Return valid file path
 
     except Exception as e:
         st.error(f"❌ WAV processing error: {str(e)}")
         return None
 
-# 🔊 **Text-to-Speech Function**
+# 🎙️ **Speech-to-Text (STT)**
 def transcribe_audio(audio_path):
     """
     Converts speech to text from a WAV file using Google's Speech Recognition API.
-
-    Parameters:
-        audio_path (str): Path to the WAV file.
-
-    Returns:
-        str: Transcribed text from the audio file, or None if transcription fails.
     """
-
-    # ✅ Check if the file exists and is not empty
     if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
         st.error("❌ Error: Audio file is empty or not recorded correctly.")
         return None
 
-    # 🎙️ Initialize the speech recognizer
     recognizer = sr.Recognizer()
 
     try:
-        # 🔄 Open the audio file and convert it to text
         with sr.AudioFile(audio_path) as source:
-            audio = recognizer.record(source)  # Capture the entire audio content
-
-        # 🎯 Transcribe the audio
+            audio = recognizer.record(source)
         text = recognizer.recognize_google(audio, language="de-DE" if lang == "de" else "en-US")
 
-        # ✅ Store the transcribed text in session state
         st.session_state.transcribed_text = text
-        return text  # Return the recognized speech as text
+        return text
 
     except sr.UnknownValueError:
         st.warning("⚠️ Could not understand the audio. Try speaking more clearly.")
@@ -113,14 +102,10 @@ def text_to_speech(text):
             st.error("❌ Error: No text provided for speech generation.")
             return None
 
-        # ✅ Generate speech
         tts = gTTS(text, lang="de" if lang == "de" else "en")
-
-        # ✅ Create a temporary MP3 file
         temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
         tts.save(temp_audio_path)
 
-        # ✅ Ensure file exists & is not empty
         if os.path.exists(temp_audio_path) and os.path.getsize(temp_audio_path) > 0:
             st.success(f"✅ Speech file successfully generated: {temp_audio_path}")
             return temp_audio_path
@@ -132,51 +117,40 @@ def text_to_speech(text):
         st.error(f"❌ TTS Error: {str(e)}")
         return None
 
-
 # 📜 **UI Title**
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
 
-# 🎤 **File Upload**
-st.info("📢 Upload a voice file to start your story.")
-uploaded_audio = st.file_uploader("📤 Upload a WAV file", type=["wav"])
+# 🔴 In-Browser Microphone Recording Section
+st.info("🎤 Press the microphone button to record. Once done, the audio will show up below.")
+audio_data = st_audiorec()
 
-def process_uploaded_audio(audio_file):
-    """Processes uploaded WAV files and ensures they are playable."""
-    try:
-        temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
+# If we have recorded audio data, convert it to a temporary WAV file
+if audio_data is not None and not st.session_state.transcribed_text:
+    # Create a temp file to store the user’s WAV audio
+    temp_wav_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
+    
+    # Write the in-memory bytes to the WAV file
+    with open(temp_wav_path, "wb") as f:
+        f.write(audio_data)
 
-        # Save uploaded file
-        with open(temp_audio_path, "wb") as f:
-            f.write(audio_file.read())
-
-        # ✅ Ensure valid WAV format
-        return validate_wav(temp_audio_path)
-
-    except Exception as e:
-        st.error(f"❌ Audio processing error: {str(e)}")
-        return None
-
-audio_path = None
-
-# 🚀 Process uploaded audio
-if uploaded_audio and not st.session_state.transcribed_text:
-    audio_path = process_uploaded_audio(uploaded_audio)
-
+    # Validate that it’s a proper WAV
+    audio_path = validate_wav(temp_wav_path)
     if audio_path:
-        topic = transcribe_audio(audio_path)  # Convert audio to text
+        topic = transcribe_audio(audio_path)
         if topic:
             st.success(f"✅ You said: {topic}")
             st.session_state.topic = topic
             st.session_state.story = f"Generating a story about {topic}..."
-            st.session_state.story_generated = False  # 🚀 Reset flag
-            st.rerun()
+            st.session_state.story_generated = False
+            st.experimental_rerun()
 
 # 🌟 **Generate Initial Story**
 if st.session_state.topic and not st.session_state.story_generated:
     topic = st.session_state.topic
     try:
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
+        # Use whichever model you prefer; 'gpt-4' or 'gpt-3.5-turbo', etc.
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": f"""Create a fun, engaging children's story for a 5-year-old in {lang}. 
                 Each section should be around 200 words long. 
@@ -188,67 +162,61 @@ if st.session_state.topic and not st.session_state.story_generated:
             ]
         )
 
-        # Save the story and reset state
         st.session_state.story = response.choices[0].message.content
         st.session_state.history.append(st.session_state.story)
 
-        # Generate speech audio
+        # Generate TTS for the story
         audio_path = text_to_speech(st.session_state.story)
         if audio_path:
             st.session_state.audio_file = audio_path
 
+        # Reset transcription so user can record again if needed
         st.session_state.transcribed_text = None
-        st.session_state.story_generated = True  # 🚀 Prevents infinite loop
-        #st.rerun()
+        st.session_state.story_generated = True
 
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
 
 # 🎙️ **Generate and Play Back Audio if Story Exists**
 if st.session_state.story:
-    # 📝 Display the generated story
+    # Display the generated story text
     st.markdown(f"<p style='font-size:18px;'>{st.session_state.story}</p>", unsafe_allow_html=True)
 
-    # 🎤 Ensure audio is generated **only once**
+    # Ensure audio is generated only once
     if "audio_file" not in st.session_state or not st.session_state.audio_file:
         if "audio_generated" not in st.session_state or not st.session_state.audio_generated:
-            generated_audio = text_to_speech(st.session_state.story)  # Generate speech file
+            generated_audio = text_to_speech(st.session_state.story)
             if generated_audio and os.path.exists(generated_audio):
-                st.session_state.audio_file = generated_audio  # Save it for reuse
-                st.session_state.audio_generated = True  # Mark that audio is generated
+                st.session_state.audio_file = generated_audio
+                st.session_state.audio_generated = True
             else:
                 st.error("❌ Failed to generate speech audio.")
 
-    # 🎧 **Validate and Play the MP3 File**
+    # Validate and Play the MP3 File
     audio_path = st.session_state.get("audio_file", None)
-
     if audio_path and os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
         try:
-            # Read the MP3 file as binary
             with open(audio_path, "rb") as f:
                 audio_bytes = f.read()
 
             if audio_bytes:
-                # 🎵 **Play the generated speech audio**
                 st.audio(audio_bytes, format="audio/mp3")
                 st.success("✅ Audio playback successful!")
 
-                # ⬇️ **Download Button (Prevents Regeneration)**
+                # Download button for the generated MP3
                 st.download_button(
                     label="⬇️ Download Speech MP3",
                     data=audio_bytes,
                     file_name="speech.mp3",
                     mime="audio/mpeg",
-                    key="download_button",  # Unique key to prevent reruns
-                    disabled=False  # Ensures the button does not modify session state
+                    key="download_button",
+                    disabled=False
                 )
-
             else:
                 st.error("❌ The generated audio file is empty.")
 
         except Exception as e:
             st.error(f"❌ Error playing audio: {str(e)}")
-            st.session_state.audio_file = None  # Reset if there's an issue
-
+            st.session_state.audio_file = None
     else:
         st.error("❌ No valid audio file found or it is corrupted.")
