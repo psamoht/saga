@@ -123,7 +123,7 @@ def text_to_speech(text):
 st.title("🎙️ Saga – Be Part of the Story" if lang == "en" else "🎙️ Saga – Sei Teil der Geschichte")
 
 # ─────────────────────────────────────────────────────────
-#  REPLACE FILE-UPLOADER SECTION WITH ST_AUDIOREC SNIPPET
+#  User voice input
 # ─────────────────────────────────────────────────────────
 st.info("📢 Record your voice to start your story. Speak a topic (e.g., 'dinosaurs', 'princesses', etc.)")
 
@@ -142,31 +142,19 @@ def record_and_play_audio():
     # 2. If audio data is available, show an audio player
     if audio_data is not None:
         st.subheader("2. Play Recorded Audio")
-        st.write("Your recorded audio is ready to play. Click the play button below.")
+        st.write("This is what you said. Click the play button below.")
         st.audio(audio_data, format='audio/wav')
 
         # 3. Transcribe the audio, if we don't already have a transcribed text
-        if not st.session_state.transcribed_text:
+        #if not st.session_state.transcribed_text:
             # Save the buffer to a temp file for transcription
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav:
-                tmp_wav.write(audio_data)
-                tmp_path = tmp_wav.name
-
-            # (Optional) Validate the WAV if desired
-            valid_path = validate_wav(tmp_path)
-            if valid_path:
-                # Now do the transcription
-                topic = transcribe_audio(valid_path)
-                if topic:
-                    st.success(f"✅ You said: {topic}")
-                    st.session_state.topic = topic
-                    st.session_state.story = f"Generating a story about {topic}..."
-                    st.session_state.story_generated = False
-                    # We can optionally force a rerun to proceed with story generation
-                    st.experimental_rerun()
+            #with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav:
+                #tmp_wav.write(audio_data)
+                #tmp_path = tmp_wav.name
 
 # Call our new function to handle recording
 record_and_play_audio()
+
 
 # ─────────────────────────────────────────────────────────
 #  CONTINUE WITH STORY GENERATION IF WE HAVE A TOPIC
