@@ -9,7 +9,7 @@ openai.api_key = st.secrets["OPENAI_API_KEY"]
 user_locale = locale.getdefaultlocale()[0]
 default_lang = "de" if user_locale and "de" in user_locale else "en"
 
-# 🌐 Language Selection Dropdown
+# 🌐 Language Selection Dropdown Field
 lang_options = {"English": "en", "Deutsch": "de"}
 selected_lang = st.selectbox("🌍 Select Language / Sprache wählen:", list(lang_options.keys()), index=0 if default_lang == "en" else 1)
 lang = lang_options[selected_lang]
